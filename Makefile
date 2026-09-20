@@ -9,13 +9,19 @@ ASFLAGS = -f elf
 # Trình giả lập QEMU cho kiến trúc x86 (32-bit)
 QEMU = qemu-system-i386
 
-all: kernel.elf
+all: os.iso
 
 kernel.elf: $(OBJECTS)
 	ld $(LDFLAGS) $(OBJECTS) -o kernel.elf
 
-os.iso: kernel.elf
+os.iso: kernel.elf menu.lst stage2_eltorito
+	@# 1. Tạo cây thư mục iso/boot/grub nếu chưa có
+	mkdir -p iso/boot/grub
+	@# 2. Copy các file cấu hình và nhị phân từ thư mục gốc vào trong
 	cp kernel.elf iso/boot/kernel.elf
+	cp menu.lst iso/boot/grub/menu.lst
+	cp stage2_eltorito iso/boot/grub/stage2_eltorito
+	@# 3. Đóng gói ISO bằng genisoimage
 	genisoimage -R \
 	            -b boot/grub/stage2_eltorito \
 	            -no-emul-boot \
@@ -27,11 +33,11 @@ os.iso: kernel.elf
 	            -o os.iso \
 	            iso
 
-# Chạy trực tiếp từ tệp ISO đã tạo
+# Chạy ISO qua QEMU
 run: os.iso
 	$(QEMU) -cdrom os.iso
 
-# Chạy thẳng kernel ELF thông qua chế độ Multiboot của QEMU (bỏ qua bước tạo ISO)
+# Chạy thẳng kernel mà không cần qua GRUB ISO
 run-kernel: kernel.elf
 	$(QEMU) -kernel kernel.elf
 
@@ -42,4 +48,4 @@ run-kernel: kernel.elf
 	$(AS) $(ASFLAGS) $< -o $@
 
 clean:
-	rm -rf *.o kernel.elf os.iso iso/boot/kernel.elf
+	rm -rf *.o kernel.elf os.iso iso

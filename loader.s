@@ -1,8 +1,9 @@
 global loader 
-extern sum_of_three
+extern kmain                     ; Khai báo hàm kmain từ kmain.c
+
 MAGIC_NUMBER equ 0x1BADB002 
-FLAGS equ 0x0
-CHECKSUM equ -MAGIC_NUMBER 
+FLAGS        equ 0x0
+CHECKSUM     equ -MAGIC_NUMBER 
 KERNEL_STACK_SIZE equ 4096
 
 section .text 
@@ -12,17 +13,14 @@ align 4
     dd CHECKSUM 
 
 loader: 
-    mov esp , kernel_stack + KERNEL_STACK_SIZE
-    push dword 3 
-    push dword 2 
-    push dword 1 
-    call sum_of_three
+    mov esp, kernel_stack + KERNEL_STACK_SIZE   ; Thiết lập stack pointer (esp)
+    call kmain                                 ; Nhảy vào hàm kmain trong C
 
 .loop: 
-hlt
-jmp .loop 
+    hlt                                        ; Dừng CPU chờ ngắt
+    jmp .loop                                  ; Vòng lặp vô hạn phòng khi CPU bị đánh thức
 
 section .bss 
 align 4 
 kernel_stack: 
-    resb KERNEL_STACK_SIZE
+    resb KERNEL_STACK_SIZE                     ; Dành sẵn 4KB bộ nhớ chưa khởi tạo cho stack
