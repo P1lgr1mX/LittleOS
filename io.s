@@ -1,6 +1,8 @@
 global outb 
 
-mov al , [esp+8] ; byte du lieu truyền 
-mov dx , [esp+4] ; chuyen dia chi vao thanh ghi dx 
-out dx , al      ; ghi byte 
-ret              ; return 
+section .text
+outb:
+    mov dx, [esp + 4]    ; port: địa chỉ cổng I/O (16-bit)
+    mov al, [esp + 8]    ; value: dữ liệu cần gửi (8-bit)
+    out dx, al           ; ghi 1 byte từ thanh ghi AL ra cổng DX
+    ret                  ; trở về hàm gọi C

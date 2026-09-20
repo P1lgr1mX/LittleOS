@@ -1,29 +1,59 @@
-#define FB_GREEN 2
-#define FB_DARK_GREY 8
+#include "framebuffer.h"
 
-/* Khai báo con trỏ tới vùng nhớ Framebuffer */
-char *fb = (char *) 0x000B8000;
-
-/**
- * fb_write_cell:
- * Ghi một ký tự kèm màu chữ và màu nền vào vị trí byte i trong framebuffer.
- *
- * @param i   Vị trí byte bắt đầu (0, 2, 4, ...)
- * @param c   Ký tự ASCII
- * @param fg  Màu tiền cảnh (chữ) - chiếm 4 bit thấp (0-3)
- * @param bg  Màu hậu cảnh (nền)  - chiếm 4 bit cao (4-7)
- */
-void fb_write_cell(unsigned int i, char c, unsigned char fg, unsigned char bg)
+/* Hàm tính độ dài chuỗi ký tự kết thúc bằng '\0' */
+static unsigned int strlen(const char *str)
 {
-    fb[i] = c;
-    fb[i + 1] = ((bg & 0x0F) << 4) | (fg & 0x0F);
+    unsigned int len = 0;
+    while (str[len] != '\0') {
+        len++;
+    }
+    return len;
+}
+
+/* Hàm phụ trợ in chuỗi ra màn hình dùng write() */
+static void print(char *str)
+{
+    write(str, strlen(str));
 }
 
 int kmain(void)
 {
-    /* Ghi chữ 'A' vào ô đầu tiên (hàng 0, cột 0) */
-    fb_write_cell(0, 'A', FB_GREEN, FB_DARK_GREY);
-    /* Ghi chữ 'B' vào ô đầu tiên (hàng 0, cột 1) */
-    fb_write_cell(1, 'Z', FB_GREEN, FB_DARK_GREY);
+    /* Xóa sạch màn hình và đưa con trỏ về (0, 0) */
+    fb_clear();
+
+    /* In tiêu đề với màu sắc sinh động */
+    fb_set_color(FB_LIGHT_CYAN, FB_BLACK);
+    print("=================================================================\n");
+    print("                 Welcome to AetherOS Kernel!                     \n");
+    print("=================================================================\n\n");
+
+    fb_set_color(FB_LIGHT_GREEN, FB_BLACK);
+    print("[ OK ] Framebuffer driver initialized successfully.\n");
+    print("[ OK ] Cursor auto-advance enabled.\n");
+    print("[ OK ] Hardware cursor synchronization active.\n\n");
+
+    fb_set_color(FB_LIGHT_BROWN, FB_BLACK);
+    print("Testing auto-scroll functionality (printing 25 lines)...\n");
+
+    /* Kiểm tra tính năng tự động cuộn màn hình khi in nhiều dòng */
+    fb_set_color(FB_WHITE, FB_BLACK);
+    for (int i = 1; i <= 25; i++) {
+        print("  -> Line ");
+        char buf[4];
+        if (i >= 10) {
+            buf[0] = '0' + (i / 10);
+            buf[1] = '0' + (i % 10);
+            buf[2] = '\0';
+        } else {
+            buf[0] = '0' + i;
+            buf[1] = '\0';
+        }
+        print(buf);
+        print(": scrolling test in progress...\n");
+    }
+
+    fb_set_color(FB_LIGHT_MAGENTA, FB_BLACK);
+    print("\n[ SUCCESS ] Driver write() & scroll completed without error!\n");
+
     return 0;
 }
