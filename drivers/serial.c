@@ -33,3 +33,18 @@ int serial_is_transmit_fifo_empty(unsigned int com)
     return inb(SERIAL_LINE_STATUS_PORT(com)) & 0x20;
 }
 
+int serial_write(unsigned int com, char *buf, unsigned int len)
+{
+    for (unsigned int i = 0; i < len; i++) {
+        while (serial_is_transmit_fifo_empty(com) == 0);
+        outb(SERIAL_DATA_PORT(com), buf[i]);
+    }
+    return (int) len;
+}
+
+int serial_write_char(unsigned int com, char c)
+{
+    while (serial_is_transmit_fifo_empty(com) == 0);
+    outb(SERIAL_DATA_PORT(com), c);
+    return 1;
+}

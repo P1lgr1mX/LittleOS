@@ -72,10 +72,13 @@ $(OS_ISO): $(KERNEL) $(GRUB_MENU) $(GRUB_STAGE2)
 	            $(ISO_DIR)
 
 # Chạy ISO qua QEMU
+
+#$(QEMU) -serial file:com1.out -cdrom os.iso
 run: $(OS_ISO)
 	$(QEMU) -serial stdio -cdrom $(OS_ISO)
 
 # Chạy trực tiếp kernel ELF qua QEMU
+#$(QEMU) -serial file:com1.out -kernel kernel.elf
 run-kernel: $(KERNEL)
 	$(QEMU) -serial stdio -kernel $(KERNEL)
 

@@ -149,19 +149,14 @@ static void fb_put_char(char c)
  * @param len Số lượng ký tự cần ghi
  * @return Số lượng ký tự đã ghi thành công
  */
-int write(char *buf, unsigned int len)
+/**
+ * fb_write:
+ * Ghi một chuỗi ký tự độ dài `len` ra framebuffer.
+ */
+int fb_write(const char *buf, unsigned int len)
 {
     for (unsigned int i = 0; i < len; i++) {
         fb_put_char(buf[i]);
     }
     return (int) len;
-}
-
-/**
- * fb_write:
- * Bí danh tiện ích cho hàm write
- */
-int fb_write(char *buf, unsigned int len)
-{
-    return write(buf, len);
 }
