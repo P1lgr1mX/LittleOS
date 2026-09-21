@@ -9,5 +9,5 @@
  * @param value Dữ liệu (1 byte) cần gửi tới cổng I/O
  */
 void outb(unsigned short port, unsigned char value);
-
+unsigned char inb(unsigned short port);
 #endif /* IO_H */

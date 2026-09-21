@@ -14,3 +14,8 @@ void serial_config_baud_rate(unsigned int base, unsigned int baud_rate){
     outb(SERIAL_DATA_PORT(base), baud_rate >> 8 & 0xFF);
     outb(SERIAL_DATA_PORT(base), baud_rate & 0xFF);
 }
+
+void serial_config_line(unsinged short com){
+    outb(SERIAL_LINE_COMMAND_PORT(SERIAL_COM1_BASE), com);
+}
+
