@@ -1,0 +1,14 @@
+# Build output directory
+build/
+
+# Object and binary files
+*.o
+*.elf
+*.iso
+iso/
+
+# Editor and temporary files
+.vscode/
+.idea/
+*.swp
+*~
