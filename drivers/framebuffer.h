@@ -32,7 +32,7 @@ void fb_move_cursor(unsigned short pos);
 /* Giao diện Trình điều khiển (The Driver) */
 void fb_clear(void);
 void fb_set_color(unsigned char fg, unsigned char bg);
-int write(char *buf, unsigned int len);
-int fb_write(char *buf, unsigned int len);
+int write(const char *buf, unsigned int len);
+int fb_write(const char *buf, unsigned int len);
 
 #endif /* FRAMEBUFFER_H */

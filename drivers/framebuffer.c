@@ -160,3 +160,12 @@ int fb_write(const char *buf, unsigned int len)
     }
     return (int) len;
 }
+
+/**
+ * write:
+ * Bí danh tiện ích cho hàm fb_write
+ */
+int write(const char *buf, unsigned int len)
+{
+    return fb_write(buf, len);
+}
