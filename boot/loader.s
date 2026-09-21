@@ -1,4 +1,5 @@
 global loader 
+global load_gdt 
 extern kmain                     ; Khai báo hàm kmain từ kmain.c
 
 MAGIC_NUMBER equ 0x1BADB002 
@@ -20,6 +21,21 @@ loader:
     hlt                                        ; Dừng CPU chờ ngắt
     jmp .loop                                  ; Vòng lặp vô hạn phòng khi CPU bị đánh thức
 
+load_gdt: 
+    mov eax, [esp + 4]              ; Lấy con trỏ struct gdt_descriptor từ đối số hàm C
+    lgdt [eax]                      ; Nạp GDTR với con trỏ struct gdt_descriptor
+
+    mov ax, 0x10                    ; Data segment selector (offset 0x10)
+    mov ds, ax
+    mov ss, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    jmp 0x08:.flush_cs
+    
+.flush.cs:
+    ret                    ; Chuyển đến trường hợp trên màn hình
 section .bss 
 align 4 
 kernel_stack: 
