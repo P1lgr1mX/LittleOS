@@ -10,4 +10,6 @@
  */
 void outb(unsigned short port, unsigned char value);
 unsigned char inb(unsigned short port);
+void enable_interrupts(void);
+void disable_interrupts(void);
 #endif /* IO_H */

@@ -1,6 +1,11 @@
 #include "framebuffer.h"
 #include "serial.h"
 #include "io.h"
+#include "gdt.h"
+#include "idt.h"
+#include "pic.h"
+#include "keyboard.h"
+
 /* Hàm tính độ dài chuỗi ký tự kết thúc bằng '\0' */
 static unsigned int strlen(const char *str)
 {
@@ -43,11 +48,11 @@ int kmain(void)
         print("  -> Line ");
         char buf[4];
         if (i >= 10) {
-            buf[0] = '0' + (i / 10);
-            buf[1] = '0' + (i % 10);
+            buf[0] = '0' + (char)(i / 10);
+            buf[1] = '0' + (char)(i % 10);
             buf[2] = '\0';
         } else {
-            buf[0] = '0' + i;
+            buf[0] = '0' + (char)i;
             buf[1] = '\0';
         }
         print(buf);
@@ -79,6 +84,33 @@ int kmain(void)
 
     fb_set_color(FB_LIGHT_GREEN, FB_BLACK);
     print("\n[ SUCCESS ] Driver write(), scroll & serial completed without error!\n");
+
+    /* Khởi tạo phân đoạn bộ nhớ GDT */
+    gdt_init();
+    print("[ OK ] GDT initialized & loaded successfully.\n");
+
+    /* Khởi tạo bảng phân phối ngắt IDT */
+    idt_init();
+    print("[ OK ] IDT initialized & loaded with 48 interrupt gates.\n");
+
+    /* Khởi tạo bộ điều khiển ngắt khả trình PIC */
+    pic_remap();
+    print("[ OK ] PIC remapped (Master: 0x20, Slave: 0x28).\n");
+
+    /* Khởi tạo trình điều khiển bàn phím PS/2 */
+    keyboard_init();
+    print("[ OK ] PS/2 Keyboard driver initialized on IRQ 1.\n");
+
+    /* Bật ngắt CPU */
+    enable_interrupts();
+    print("[ OK ] CPU interrupts enabled (sti).\n\n");
+
+    /* Sẵn sàng nhận thao tác gõ phím từ người dùng */
+    fb_set_color(FB_LIGHT_CYAN, FB_BLACK);
+    print("=================================================================\n");
+    print("Keyboard input active! You can type in the console now:\n");
+    print("AetherOS> ");
+    fb_set_color(FB_WHITE, FB_BLACK);
 
     return 0;
 }

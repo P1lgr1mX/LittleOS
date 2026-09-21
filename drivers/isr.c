@@ -1,0 +1,44 @@
+#include "isr.h"
+#include "pic.h"
+#include "framebuffer.h"
+
+static isr_handler_t interrupt_handlers[256];
+
+void register_interrupt_handler(unsigned char n, isr_handler_t handler)
+{
+    interrupt_handlers[n] = handler;
+}
+
+void interrupt_handler(struct registers *cpu, struct stack_state *stack, unsigned int interrupt)
+{
+    (void)cpu;
+    (void)stack;
+
+    if (interrupt < 256 && interrupt_handlers[interrupt] != 0) {
+        interrupt_handlers[interrupt](cpu, stack, interrupt);
+    } else {
+        /* Xử lý ngoại lệ CPU (0 - 31) chưa có trình xử lý */
+        if (interrupt < 32) {
+            fb_set_color(FB_LIGHT_RED, FB_BLACK);
+            write("\n[EXCEPTION] Unhandled CPU Exception: ", 37);
+            char buf[4];
+            if (interrupt >= 10) {
+                buf[0] = '0' + (char)(interrupt / 10);
+                buf[1] = '0' + (char)(interrupt % 10);
+                buf[2] = '\n';
+                buf[3] = '\0';
+                write(buf, 3);
+            } else {
+                buf[0] = '0' + (char)interrupt;
+                buf[1] = '\n';
+                buf[2] = '\0';
+                write(buf, 2);
+            }
+        }
+    }
+
+    /* Nếu là ngắt phần cứng PIC (32 - 47), gửi tín hiệu báo nhận PIC ACK */
+    if (interrupt >= 32 && interrupt <= 47) {
+        pic_ack((unsigned char)interrupt);
+    }
+}

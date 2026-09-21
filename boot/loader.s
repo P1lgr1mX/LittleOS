@@ -34,7 +34,7 @@ load_gdt:
 
     jmp 0x08:.flush_cs
     
-.flush.cs:
+.flush_cs:
     ret                    ; Chuyển đến trường hợp trên màn hình
 section .bss 
 align 4 

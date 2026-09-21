@@ -19,6 +19,10 @@ The project currently includes:
 - kernel entry point
 - VGA text-mode framebuffer driver
 - serial port driver
+- GDT (Global Descriptor Table) setup & reloading
+- IDT (Interrupt Descriptor Table) with 48 interrupt gates
+- 8259 PIC remapping and hardware IRQ handling
+- PS/2 Keyboard driver with Scancode Set 1 decoding
 - GRUB-compatible ISO generation
 - basic kernel startup and output routines
 
@@ -31,6 +35,9 @@ The project currently includes:
 - Serial COM1 communication
 - Auto-scroll support for console output
 - Basic color support for terminal output
+- GDT segmentation setup (code and data descriptors)
+- IDT with CPU exceptions & PIC hardware interrupt routing
+- Interactive PS/2 keyboard typing with screen and serial echo
 - ISO image generation for booting in QEMU
 - Minimal kernel execution environment without libc
 
@@ -48,10 +55,20 @@ LittleOS/
 ├── drivers/
 │   ├── framebuffer.c
 │   ├── framebuffer.h
+│   ├── gdt.c
+│   ├── gdt.h
+│   ├── idt.c
+│   ├── idt.h
+│   ├── idt.s
 │   ├── io.h
 │   ├── io.s
+│   ├── isr.c
 │   ├── isr.h
 │   ├── isr.s
+│   ├── keyboard.c
+│   ├── keyboard.h
+│   ├── pic.c
+│   ├── pic.h
 │   ├── serial.c
 │   └── serial.h
 ├── kernel/
@@ -60,3 +77,4 @@ LittleOS/
 ├── Makefile
 ├── link.ld
 └── README.md
+```

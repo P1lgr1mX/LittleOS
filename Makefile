@@ -17,15 +17,23 @@ ISO_DIR = $(BUILD_DIR)/iso
 
 # Danh sách mã nguồn
 ASM_SOURCES = boot/loader.s \
-              drivers/io.s
+              drivers/io.s \
+              drivers/idt.s \
+              drivers/isr.s
 
 C_SOURCES = kernel/kmain.c \
             drivers/framebuffer.c \
-            drivers/serial.c
+            drivers/serial.c \
+            drivers/gdt.c \
+            drivers/idt.c \
+            drivers/isr.c \
+            drivers/pic.c \
+            drivers/keyboard.c
 
-# Danh sách file đối tượng (.o) nằm trong build/
-OBJECTS = $(patsubst %.s, $(BUILD_DIR)/%.o, $(ASM_SOURCES)) \
-          $(patsubst %.c, $(BUILD_DIR)/%.o, $(C_SOURCES))
+# Danh sách file đối tượng nằm trong build/
+ASM_OBJECTS = $(patsubst %.s, $(BUILD_DIR)/%.s.o, $(ASM_SOURCES))
+C_OBJECTS   = $(patsubst %.c, $(BUILD_DIR)/%.c.o, $(C_SOURCES))
+OBJECTS     = $(ASM_OBJECTS) $(C_OBJECTS)
 
 # File nhị phân đầu ra
 KERNEL = $(BUILD_DIR)/kernel.elf
@@ -39,13 +47,13 @@ GRUB_STAGE2 = boot/grub/stage2_eltorito
 
 all: $(OS_ISO)
 
-# Quy tắc biên dịch file C sang file .o
-$(BUILD_DIR)/%.o: %.c
+# Quy tắc biên dịch file C
+$(BUILD_DIR)/%.c.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $< -o $@
 
-# Quy tắc biên dịch file Assembly sang file .o
-$(BUILD_DIR)/%.o: %.s
+# Quy tắc biên dịch file Assembly
+$(BUILD_DIR)/%.s.o: %.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
