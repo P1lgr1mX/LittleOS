@@ -35,6 +35,10 @@ ASM_OBJECTS = $(patsubst %.s, $(BUILD_DIR)/%.s.o, $(ASM_SOURCES))
 C_OBJECTS   = $(patsubst %.c, $(BUILD_DIR)/%.c.o, $(C_SOURCES))
 OBJECTS     = $(ASM_OBJECTS) $(C_OBJECTS)
 
+# Module
+MODULE_SRC = modules/program.s
+MODULE_BIN = modules/program
+
 # File nhị phân đầu ra
 KERNEL = $(BUILD_DIR)/kernel.elf
 OS_ISO = $(BUILD_DIR)/os.iso
@@ -46,6 +50,11 @@ GRUB_STAGE2 = boot/grub/stage2_eltorito
 .PHONY: all run run-kernel clean
 
 all: $(OS_ISO)
+
+# Quy tắc biên dịch module (flat binary)
+$(MODULE_BIN): $(MODULE_SRC)
+	@mkdir -p modules
+	$(AS) -f bin $< -o $@
 
 # Quy tắc biên dịch file C
 $(BUILD_DIR)/%.c.o: %.c
@@ -63,11 +72,13 @@ $(KERNEL): $(OBJECTS)
 	$(LD) $(LDFLAGS) $(OBJECTS) -o $@
 
 # Đóng gói ISO với GRUB El Torito
-$(OS_ISO): $(KERNEL) $(GRUB_MENU) $(GRUB_STAGE2)
+$(OS_ISO): $(KERNEL) $(GRUB_MENU) $(GRUB_STAGE2) $(MODULE_BIN)
 	@mkdir -p $(ISO_DIR)/boot/grub
+	@mkdir -p $(ISO_DIR)/modules
 	cp $(KERNEL) $(ISO_DIR)/boot/kernel.elf
 	cp $(GRUB_MENU) $(ISO_DIR)/boot/grub/menu.lst
 	cp $(GRUB_STAGE2) $(ISO_DIR)/boot/grub/stage2_eltorito
+	cp $(MODULE_BIN) $(ISO_DIR)/modules/program
 	genisoimage -R \
 	            -b boot/grub/stage2_eltorito \
 	            -no-emul-boot \
@@ -80,16 +91,13 @@ $(OS_ISO): $(KERNEL) $(GRUB_MENU) $(GRUB_STAGE2)
 	            $(ISO_DIR)
 
 # Chạy ISO qua QEMU
-
-#$(QEMU) -serial file:com1.out -cdrom os.iso
 run: $(OS_ISO)
 	$(QEMU) -serial stdio -cdrom $(OS_ISO)
 
 # Chạy trực tiếp kernel ELF qua QEMU
-#$(QEMU) -serial file:com1.out -kernel kernel.elf
-run-kernel: $(KERNEL)
-	$(QEMU) -serial stdio -kernel $(KERNEL)
+run-kernel: $(KERNEL) $(MODULE_BIN)
+	$(QEMU) -serial stdio -kernel $(KERNEL) -initrd $(MODULE_BIN)
 
 # Dọn dẹp thư mục build
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR) $(MODULE_BIN)

@@ -5,6 +5,9 @@
 #include "idt.h"
 #include "pic.h"
 #include "keyboard.h"
+#include "multiboot.h"
+
+typedef void (*call_module_t)(void);
 
 /* Hàm tính độ dài chuỗi ký tự kết thúc bằng '\0' */
 static unsigned int strlen(const char *str)
@@ -22,7 +25,7 @@ static void print(const char *str)
     fb_write(str, strlen(str));
 }
 
-int kmain(void)
+int kmain(/* additional arguments */ unsigned int ebx)
 {
     /* Xóa sạch màn hình và đưa con trỏ về (0, 0) */
     fb_clear();    
@@ -109,8 +112,27 @@ int kmain(void)
     fb_set_color(FB_LIGHT_CYAN, FB_BLACK);
     print("=================================================================\n");
     print("Keyboard input active! You can type in the console now:\n");
-    print("AetherOS> ");
+    print("LittleOS> ");
     fb_set_color(FB_WHITE, FB_BLACK);
+
+    multiboot_info_t *mbinfo = (multiboot_info_t *) ebx;
+    unsigned int address_of_module = mbinfo->mods_addr;
+
+    /* Kiểm tra cờ Multiboot và số lượng module hợp lệ trước khi gọi */
+    if ((mbinfo->flags & MULTIBOOT_INFO_MODS) && mbinfo->mods_count > 0) {
+        multiboot_module_t *mod = (multiboot_module_t *) mbinfo->mods_addr;
+        address_of_module = mod->mod_start;
+
+        fb_set_color(FB_LIGHT_GREEN, FB_BLACK);
+        print("[ OK ] GRUB module found! Executing module...\n");
+
+        call_module_t start_program = (call_module_t) address_of_module;
+        start_program();
+        /* chúng ta sẽ không bao giờ tới được đây, trừ khi mã của mô-đun trả về */
+    } else {
+        fb_set_color(FB_LIGHT_RED, FB_BLACK);
+        print("[ WARN ] No Multiboot module found.\n");
+    }
 
     return 0;
 }
