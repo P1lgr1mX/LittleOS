@@ -9,8 +9,12 @@
 #define FB_HIGH_BYTE_COMMAND    14
 #define FB_LOW_BYTE_COMMAND     15
 
-/* Địa chỉ bắt đầu của bộ đệm VGA text mode (0x000B8000) */
-static char *fb = (char *) 0x000B8000;
+/* 
+ * Địa chỉ bắt đầu của bộ đệm VGA text mode trong không gian Higher-Half (0xC00B8000).
+ * Địa chỉ vật lý là 0x000B8000. Do bảng trang ánh xạ 3GB (0xC0000000) vào 0x00000000 vật lý,
+ * địa chỉ ảo truy cập qua Paging là: 0xC0000000 + 0x000B8000 = 0xC00B8000.
+ */
+static char *fb = (char *) 0xC00B8000;
 
 /* Vị trí con trỏ hiện tại trên màn hình (0 -> 1999) */
 static unsigned short cursor_pos = 0;

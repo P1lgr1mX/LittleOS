@@ -107,7 +107,7 @@ int kmain(/* additional arguments */ unsigned int ebx)
 
     /* Khởi tạo phân trang (Paging) */
     paging_init();
-    print("[ OK ] Paging initialized & enabled (Identity mapped 0 - 4MB).\n");
+    print("[ OK ] Higher-Half Paging active (Kernel at 0xC0100000, 3GB Virtual Base).\n");
 
     /* Bật ngắt CPU */
     enable_interrupts();
