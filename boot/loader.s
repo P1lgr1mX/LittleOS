@@ -1,5 +1,7 @@
 global loader 
 global load_gdt 
+global load_page_directory
+global enable_paging
 extern kmain                     ; Khai báo hàm kmain từ kmain.c
 
 MAGIC_NUMBER    equ 0x1BADB002 
@@ -39,6 +41,17 @@ load_gdt:
 .flush_cs:
     ret                    ; Chuyển đến trường hợp trên màn hình
 
+load_page_directory: 
+    mov eax, [esp + 4]              ; Lấy con trỏ page_directory từ đối số hàm C
+    mov cr3, eax                    ; Nạp địa chỉ page directory vào CR3
+    ret 
+
+enable_paging: 
+    mov eax, cr0                    ; Lấy Control Register CR0
+    or  eax, 0x80000000             ; Bật bit 31 (PG - Paging Enable)
+    mov cr0, eax                    ; Cập nhật CR0
+    ret
+    
 section .bss 
 align 4 
 kernel_stack: 

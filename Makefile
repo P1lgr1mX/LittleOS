@@ -22,6 +22,7 @@ ASM_SOURCES = boot/loader.s \
               drivers/isr.s
 
 C_SOURCES = kernel/kmain.c \
+            kernel/paging.c \
             drivers/framebuffer.c \
             drivers/serial.c \
             drivers/gdt.c \

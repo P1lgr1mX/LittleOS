@@ -6,6 +6,7 @@
 #include "pic.h"
 #include "keyboard.h"
 #include "multiboot.h"
+#include "paging.h"
 
 typedef void (*call_module_t)(void);
 
@@ -103,6 +104,10 @@ int kmain(/* additional arguments */ unsigned int ebx)
     /* Khởi tạo trình điều khiển bàn phím PS/2 */
     keyboard_init();
     print("[ OK ] PS/2 Keyboard driver initialized on IRQ 1.\n");
+
+    /* Khởi tạo phân trang (Paging) */
+    paging_init();
+    print("[ OK ] Paging initialized & enabled (Identity mapped 0 - 4MB).\n");
 
     /* Bật ngắt CPU */
     enable_interrupts();
