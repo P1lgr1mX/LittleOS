@@ -9,6 +9,10 @@ global load_page_directory
 global enable_paging
 global boot_page_directory
 global boot_page_table1
+global load_tss
+global enter_user_mode
+global kernel_stack
+global KERNEL_STACK_SIZE
 extern kmain
 
 ; Các hằng số Multiboot 1
@@ -100,6 +104,34 @@ enable_paging:
     or  eax, 0x80000000
     mov cr0, eax
     ret
+
+; Hàm nạp Task Register (TR) từ C: load_tss(unsigned short selector)
+load_tss:
+    mov ax, [esp + 4]
+    ltr ax
+    ret
+
+; Hàm nhảy xuống Ring 3 (User Mode) bằng iret: enter_user_mode(eip, esp)
+enter_user_mode:
+    mov eax, [esp + 4]              ; EIP đích của tiến trình User
+    mov ebx, [esp + 8]              ; ESP đỉnh ngăn xếp của User
+
+    ; Nạp Data Segment Selector của User: 0x20 | 3 = 0x23
+    mov cx, 0x23
+    mov ds, cx
+    mov es, cx
+    mov fs, cx
+    mov gs, cx
+
+    ; Đóng kịch stack để thực hiện lệnh iret:
+    ; Thứ tự pop của CPU: EIP -> CS -> EFLAGS -> ESP -> SS
+    push dword 0x23                 ; SS: 0x20 | 3 (User Data Selector với RPL=3)
+    push ebx                        ; ESP: Đỉnh ngăn xếp User (0xBFFFFFFB)
+    push dword 0x02                 ; EFLAGS: Bit 1 luôn là 1, IF=0 (ngắt bị tắt tạm thời)
+    push dword 0x1B                 ; CS: 0x18 | 3 (User Code Selector với RPL=3)
+    push eax                        ; EIP: Điểm bắt đầu thực thi của User (0x00000000)
+
+    iret                            ; CPU chuyển đặc quyền sang Ring 3!
 
 ; =============================================================================
 ; Phân vùng .data: Khởi tạo bảng trang tĩnh tại thời điểm biên dịch

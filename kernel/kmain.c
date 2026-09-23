@@ -157,20 +157,46 @@ int kmain(unsigned int ebx)
     print("LittleOS> ");
     fb_set_color(FB_WHITE, FB_BLACK);
 
+    extern unsigned char kernel_stack[];
+    #define KERNEL_STACK_SIZE 4096
+
     multiboot_info_t *mbinfo = (multiboot_info_t *) ebx;
-    unsigned int address_of_module = mbinfo->mods_addr;
 
     /* Kiểm tra cờ Multiboot và số lượng module hợp lệ trước khi gọi */
     if ((mbinfo->flags & MULTIBOOT_INFO_MODS) && mbinfo->mods_count > 0) {
         multiboot_module_t *mod = (multiboot_module_t *) mbinfo->mods_addr;
-        address_of_module = mod->mod_start;
+        unsigned int mod_start = mod->mod_start;
+        unsigned int mod_size = mod->mod_end - mod->mod_start;
 
         fb_set_color(FB_LIGHT_GREEN, FB_BLACK);
-        print("[ OK ] GRUB module found! Executing module...\n");
+        print("[ OK ] GRUB module found! Configuring User Mode (Ring 3)...\n");
 
-        call_module_t start_program = (call_module_t) address_of_module;
-        start_program();
-        /* chúng ta sẽ không bao giờ tới được đây, trừ khi mã của mô-đun trả về */
+        /* 1. Cấu hình phân trang cho User Mode (Chapter 11):
+         * - Map mã lệnh User tại 0x00000000 (User accessible, U/S=1)
+         * - Map ngăn xếp User tại 0xBFFFFFFB (User accessible, U/S=1)
+         * - Giữ nguyên ánh xạ Kernel Higher-Half 0xC0000000 (Supervisor, U/S=0)
+         * - Nạp CR3 với User Page Directory
+         */
+        paging_setup_user_process(mod_start, mod_size);
+        print("[ OK ] User Page Directory & Tables mapped with U/S = 1.\n");
+
+        /* 2. Cài đặt Kernel Stack vào TSS:
+         * Đảm bảo khi CPU từ Ring 3 gặp ngắt/ngoại lệ/syscall nhảy về Ring 0,
+         * CPU sẽ nạp đúng đỉnh ngăn xếp kernel an toàn.
+         */
+        tss_set_kernel_stack((unsigned int)kernel_stack + KERNEL_STACK_SIZE);
+        print("[ OK ] TSS Ring 0 stack pointer configured.\n");
+
+        /* 3. Chuẩn bị bước nhảy sang User Mode */
+        fb_set_color(FB_LIGHT_CYAN, FB_BLACK);
+        print("[ INFO ] Executing iret to drop CPU privilege into Ring 3...\n");
+        const char *serial_user_msg = "[User Mode] Switching to Ring 3 via iret (CS=0x1B, SS=0x23, EIP=0x0)...\r\n";
+        serial_write(SERIAL_COM1_BASE, serial_user_msg, strlen(serial_user_msg));
+
+        /* 4. Nhảy sang Ring 3: EIP = 0x00000000, ESP = 0xBFFFFFFB */
+        enter_user_mode(USER_ENTRY_POINT, USER_STACK_TOP);
+
+        /* Sau khi vào User Mode, CPU sẽ thực thi tại 0x00000000 */
     } else {
         fb_set_color(FB_LIGHT_RED, FB_BLACK);
         print("[ WARN ] No Multiboot module found.\n");
