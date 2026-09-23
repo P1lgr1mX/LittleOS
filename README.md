@@ -1,10 +1,10 @@
 # LittleOS
 
 <div align="center">
-  <img src="https://wall.alphacoders.com/big.php?i=1406676" alt="LittleOS">
+  <img src="https://www.wallper.app/wallpaper/anime/popout-manga-88467e27-65d8-47e9-9951-840d49ac3804" alt="LittleOS">
 </div>
 
-A bare-metal operating system project focused on low-level x86 kernel development, bootloader setup, VGA framebuffer output, and hardware interrupt handling. This project is designed as an educational OS development exercise and explores how a minimal kernel boots and interacts with system hardware directly.
+A bare-metal operating system project focused on low-level x86 kernel development, bootloader setup, VGA framebuffer output, and hardware interrupt handling. This project is designed as an educational project for learning operating system fundamentals.
 
 ## Overview
 
@@ -45,7 +45,6 @@ The project currently includes:
 
 ```text
 LittleOS
-├
 ├── boot
 │   ├── grub
 │   │   ├── menu.lst
@@ -82,5 +81,4 @@ LittleOS
 ├── modules
 │   └── program.s
 └── README.md
-
 ```
