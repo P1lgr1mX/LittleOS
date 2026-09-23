@@ -7,6 +7,7 @@
 #include "keyboard.h"
 #include "multiboot.h"
 #include "paging.h"
+#include "syscall.h"
 
 typedef void (*call_module_t)(void);
 
@@ -116,6 +117,10 @@ int kmain(unsigned int ebx)
     /* Khởi tạo bảng phân phối ngắt IDT */
     idt_init();
     print("[ OK ] IDT initialized & loaded with 48 interrupt gates.\n");
+
+    /* Đăng ký System Call handler tại ngắt 0x80 (128) */
+    syscall_init();
+    print("[ OK ] Syscall handler registered at INT 0x80 (DPL=3).\n");
 
     /* Khởi tạo bộ điều khiển ngắt khả trình PIC */
     pic_remap();

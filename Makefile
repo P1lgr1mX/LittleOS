@@ -19,10 +19,12 @@ ISO_DIR = $(BUILD_DIR)/iso
 ASM_SOURCES = boot/loader.s \
               drivers/io.s \
               drivers/idt.s \
-              drivers/isr.s
+              drivers/isr.s \
+              kernel/syscall.s
 
 C_SOURCES = kernel/kmain.c \
             kernel/paging.c \
+            kernel/syscall.c \
             drivers/framebuffer.c \
             drivers/serial.c \
             drivers/gdt.c \
