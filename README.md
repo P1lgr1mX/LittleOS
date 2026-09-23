@@ -44,15 +44,16 @@ The project currently includes:
 ## Project Structure
 
 ```text
-LittleOS/
-├── boot/
-│   ├── grub/
+LittleOS
+├
+├── boot
+│   ├── grub
 │   │   ├── menu.lst
 │   │   └── stage2_eltorito
 │   └── loader.s
-├── docs/
+├── docs
 │   └── example.c
-├── drivers/
+├── drivers
 │   ├── framebuffer.c
 │   ├── framebuffer.h
 │   ├── gdt.c
@@ -71,10 +72,15 @@ LittleOS/
 │   ├── pic.h
 │   ├── serial.c
 │   └── serial.h
-├── kernel/
-│   └── kmain.c
-├── .gitignore
-├── Makefile
+├── kernel
+│   ├── kmain.c
+│   ├── multiboot.h
+│   ├── paging.c
+│   └── paging.h
 ├── link.ld
+├── Makefile
+├── modules
+│   └── program.s
 └── README.md
+
 ```
