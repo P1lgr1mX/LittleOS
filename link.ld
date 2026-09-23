@@ -20,7 +20,8 @@ SECTIONS
      * VMA = LMA = 0x00100000 (Địa chỉ vật lý 1MB)
      * ------------------------------------------------------------- */
     . = 0x00100000;
-
+    kernel_physical_start = .;
+    kernel_virtual_start = . + 0xC0000000;
     .boot : {
         *(.multiboot)   /* Header Multiboot (bắt buộc nằm trong 8KB đầu) */
         *(.boot)        /* Mã Assembly khởi tạo bảng trang và bật Paging */
@@ -53,4 +54,7 @@ SECTIONS
         *(COMMON)
         *(.bss)
     }
+
+    kernel_virtual_end = .; 
+    kernel_physical_end = . - 0xC0000000;
 }

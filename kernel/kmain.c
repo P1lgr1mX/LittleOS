@@ -10,6 +10,12 @@
 
 typedef void (*call_module_t)(void);
 
+/* Các nhãn ranh giới bộ nhớ kernel từ link.ld */
+extern unsigned int kernel_physical_start;
+extern unsigned int kernel_physical_end;
+extern unsigned int kernel_virtual_start;
+extern unsigned int kernel_virtual_end;
+
 /* Hàm tính độ dài chuỗi ký tự kết thúc bằng '\0' */
 static unsigned int strlen(const char *str)
 {
@@ -26,7 +32,21 @@ static void print(const char *str)
     fb_write(str, strlen(str));
 }
 
-int kmain(/* additional arguments */ unsigned int ebx)
+/* Hàm phụ trợ in số nguyên 32-bit dưới dạng Hexadecimal (0x12345678) */
+static void print_hex(unsigned int n)
+{
+    char buf[11];
+    buf[0] = '0';
+    buf[1] = 'x';
+    for (int i = 7; i >= 0; i--) {
+        int nibble = (n >> (i * 4)) & 0xF;
+        buf[9 - i] = (nibble < 10) ? ('0' + nibble) : ('A' + nibble - 10);
+    }
+    buf[10] = '\0';
+    print(buf);
+}
+
+int kmain(unsigned int ebx)
 {
     /* Xóa sạch màn hình và đưa con trỏ về (0, 0) */
     fb_clear();    
@@ -108,6 +128,23 @@ int kmain(/* additional arguments */ unsigned int ebx)
     /* Khởi tạo phân trang (Paging) */
     paging_init();
     print("[ OK ] Higher-Half Paging active (Kernel at 0xC0100000, 3GB Virtual Base).\n");
+
+    /* Hiển thị phạm vi bộ nhớ của Kernel */
+    unsigned int p_start = (unsigned int)&kernel_physical_start;
+    unsigned int p_end   = (unsigned int)&kernel_physical_end;
+    unsigned int v_start = (unsigned int)&kernel_virtual_start;
+    unsigned int v_end   = (unsigned int)&kernel_virtual_end;
+
+    fb_set_color(FB_LIGHT_CYAN, FB_BLACK);
+    print("[ MEM ] Kernel Physical: ");
+    print_hex(p_start);
+    print(" -> ");
+    print_hex(p_end);
+    print("\n[ MEM ] Kernel Virtual : ");
+    print_hex(v_start);
+    print(" -> ");
+    print_hex(v_end);
+    print("\n");
 
     /* Bật ngắt CPU */
     enable_interrupts();

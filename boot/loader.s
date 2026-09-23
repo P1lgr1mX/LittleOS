@@ -52,7 +52,6 @@ loader:
     ;    Nhãn `higher_half` nằm trong section .text (ở mốc >= 0xC0100000).
     lea eax, [higher_half]
     jmp eax
-
 ; =============================================================================
 ; Phân vùng .text: Mã lệnh chính của Kernel, chạy tại địa chỉ ảo Higher-Half (>= 0xC0100000)
 ; =============================================================================
