@@ -3,10 +3,9 @@
     This file is part of the Sanemy - Nguyen Huy Quang x Gemini 3-8-flash 
     coursework for the course "Advanced Embedded Systems" at the
     HUST, Vietnam.
-    GPL v3 License 
+    BSD 3-Clause License
+
 */
-
-
 #include "kernel/kheap.h"
 #include "drivers/framebuffer.h"
 #include "drivers/serial.h"
