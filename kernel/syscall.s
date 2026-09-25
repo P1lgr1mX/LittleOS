@@ -19,10 +19,10 @@ Int128Handler:
     push gs             ; [esp + 40]
     push fs             ; [esp + 36]
     push es             ; [esp + 32]
-    push ds             ; [esp + 28]
+    push ds             ; [esp + 28] ; dinh stack moi 
     push dword -ENOSYS  ; [esp + 24]: orig_eax (mã lỗi mặc định nếu chưa xử lý)
-    push ebp            ; [esp + 20]
-    push edi            ; [esp + 16]
+    push ebp            ; [esp + 20] ; tham chieu den stack  
+    push edi            ; [esp + 16] ; 1 trong 5 thanh ghi ring 3 được đẩy
     push esi            ; [esp + 12]
     push edx            ; [esp + 8]
     push ecx            ; [esp + 4]

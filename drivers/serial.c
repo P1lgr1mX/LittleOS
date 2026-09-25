@@ -64,3 +64,17 @@ int serial_write_char(unsigned int com, char c)
     outb(SERIAL_DATA_PORT(com), c);
     return 1;
 }
+
+int serial_receive(unsigned int com)
+{
+    /* Bit 0: Data Ready (1 khi có byte dữ liệu trong bộ đệm nhận) */
+    return inb(SERIAL_LINE_STATUS_PORT(com)) & 1;
+}
+
+int serial_read_char(unsigned int com)
+{
+    if (serial_receive(com)) {
+        return inb(SERIAL_DATA_PORT(com));
+    }
+    return -1;
+}

@@ -12,7 +12,7 @@ extern void load_idt(struct idt_ptr *ptr);
 extern void *isr_stub_table[48];
 
 void idt_set_gate(unsigned char num, unsigned int base, unsigned short sel, unsigned char flags)
-{
+{   //int 0x80 intel
     idt[num].offset_lowerbits = (unsigned short)(base & 0xFFFF);
     idt[num].offset_higherbits = (unsigned short)((base >> 16) & 0xFFFF);
     idt[num].selector = sel;
@@ -37,4 +37,7 @@ void idt_init(void)
 
     /* Nạp IDTR vào thanh ghi CPU qua lệnh lidt */
     load_idt(&idtr);
+
 }
+
+
