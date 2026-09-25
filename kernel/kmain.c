@@ -68,12 +68,9 @@ int kmain(uint32_t ebx)
     print("[ OK ] Cursor auto-advance enabled.\n");
     print("[ OK ] Hardware cursor synchronization active.\n\n");
 
-    /* Khởi tạo và kiểm tra Serial driver (COM1: 115200 8N1) */
+    /* Khởi tạo và kiểm tra Serial driver (COM1: 115200 8N1, ngắt IRQ 4) */
     fb_set_color(FB_LIGHT_MAGENTA, FB_BLACK);
-    serial_config_baud_rate(SERIAL_COM1_BASE, 115200);
-    serial_config_line(SERIAL_COM1_BASE);
-    serial_config_buffers(SERIAL_COM1_BASE);
-    serial_config_modem(SERIAL_COM1_BASE);
+    serial_init();
 
     /* Ghi dữ liệu kiểm tra ra cổng serial COM1 */
     serial_write_char(SERIAL_COM1_BASE, 'A');
@@ -81,7 +78,7 @@ int kmain(uint32_t ebx)
     const char *serial_msg = " [Serial COM1] LittleOS Serial Driver initialized successfully!\r\n";
     serial_write(SERIAL_COM1_BASE, serial_msg, strlen(serial_msg));
 
-    print("[ OK ] Serial driver initialized successfully!\n");
+    print("[ OK ] Serial driver initialized with IRQ 4 successfully!\n");
 
     /* Khởi tạo phân đoạn bộ nhớ GDT */
     gdt_init();
@@ -149,11 +146,10 @@ int kmain(uint32_t ebx)
     enable_interrupts();
     print("[ OK ] CPU interrupts enabled (sti).\n\n");
 
-    /* Sẵn sàng nhận thao tác gõ phím từ người dùng */
+    /* Chuẩn bị chuyển giao quyền điều khiển cho User Mode (Ring 3) */
     fb_set_color(FB_LIGHT_CYAN, FB_BLACK);
     print("=================================================================\n");
-    print("Keyboard input active! You can type in the console now:\n");
-    print("LittleOS> ");
+    print("[ OK ] Kernel initialization complete. Transitioning to User Mode...\n\n");
     fb_set_color(FB_WHITE, FB_BLACK);
 
     multiboot_info_t *mbinfo = (multiboot_info_t *) ebx;

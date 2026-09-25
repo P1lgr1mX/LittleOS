@@ -37,9 +37,9 @@ void pic_remap(void)
     outb(PIC2_PORT_B, 0x01);
 
     /* Mặt nạ ngắt ban đầu:
-     * Cho phép IRQ 1 (Keyboard: bit 1 = 0)
-     * PIC1: 0xFD (1111 1101b - chỉ mở IRQ1)
+     * Cho phép IRQ 1 (Keyboard: bit 1 = 0) và IRQ 4 (COM1 Serial: bit 4 = 0)
+     * PIC1: ~(0x02 | 0x10) = 0xED (1110 1101b)
      * PIC2: 0xFF (tất cả khóa)
      */
-    pic_set_mask(0xFD, 0xFF);
+    pic_set_mask(0xED, 0xFF);
 }

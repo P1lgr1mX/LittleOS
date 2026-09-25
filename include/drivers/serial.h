@@ -5,6 +5,7 @@
 
 #define SERIAL_COM1_BASE                0x3F8 /* Cổng base của COM1 */ 
 
+void serial_init(void);
 void serial_config_baud_rate(uint32_t base, uint32_t baud_rate);
 void serial_config_line(uint16_t com);
 void serial_config_buffers(uint16_t com);

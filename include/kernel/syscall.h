@@ -9,6 +9,7 @@
 #define SYS_FORK  2
 #define SYS_READ  3
 #define SYS_WRITE 4
+#define SYS_CLEAR 5
 
 /*
  * Cấu trúc con trỏ ngăn xếp pt_regs khớp chính xác 100% với

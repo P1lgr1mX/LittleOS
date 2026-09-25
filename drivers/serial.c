@@ -1,8 +1,11 @@
 #include "drivers/serial.h"
+#include "drivers/keyboard.h"
 #include "arch/x86/io.h"
+#include "arch/x86/isr.h"
 
 #define SERIAL_COM1_BASE                0x3F8 /* Cổng base của COM1 */
 #define SERIAL_DATA_PORT(base)          (base)
+#define SERIAL_INT_ENABLE_PORT(base)    (base + 1)
 #define SERIAL_FIFO_COMMAND_PORT(base)  (base + 2)
 #define SERIAL_LINE_COMMAND_PORT(base)  (base + 3)
 #define SERIAL_MODEM_COMMAND_PORT(base) (base + 4)
@@ -26,14 +29,43 @@ void serial_config_line(uint16_t com)
 
 void serial_config_buffers(uint16_t com)
 {
-    /* 0xC7: Bật FIFO, xóa buffer, ngưỡng ngắt 14 bytes */
-    outb(SERIAL_FIFO_COMMAND_PORT(com), 0xC7);
+    /* 0x07: Bật FIFO, xóa buffer, ngưỡng ngắt 1 byte (phản hồi tức thì) */
+    outb(SERIAL_FIFO_COMMAND_PORT(com), 0x07);
 }
 
 void serial_config_modem(uint16_t com)
 {
-    /* 0x03: Đặt RTS và DTR bằng 1 để báo sẵn sàng truyền nhận */
-    outb(SERIAL_MODEM_COMMAND_PORT(com), 0x03);
+    /* 0x0B = 0000 1011b: Bit 3 (OUT2: bật ngắt UART tới PIC), Bit 1 (RTS=1), Bit 0 (DTR=1) */
+    outb(SERIAL_MODEM_COMMAND_PORT(com), 0x0B);
+}
+
+static void serial_interrupt_handler(struct registers *cpu, struct stack_state *stack, uint32_t interrupt)
+{
+    (void)cpu;
+    (void)stack;
+    (void)interrupt;
+
+    while (serial_receive(SERIAL_COM1_BASE)) {
+        int c = serial_read_char(SERIAL_COM1_BASE);
+        if (c != -1) {
+            /* Đồng bộ ký tự nhận được vào bộ đệm bàn phím cho User Ring 3 */
+            keyboard_put_char((char)c);
+        }
+    }
+}
+
+void serial_init(void)
+{
+    serial_config_baud_rate(SERIAL_COM1_BASE, 115200);
+    serial_config_line(SERIAL_COM1_BASE);
+    serial_config_buffers(SERIAL_COM1_BASE);
+    serial_config_modem(SERIAL_COM1_BASE);
+
+    /* Bật ngắt khi có dữ liệu đến (Received Data Available Interrupt) */
+    outb(SERIAL_INT_ENABLE_PORT(SERIAL_COM1_BASE), 0x01);
+
+    /* Đăng ký trình xử lý ngắt IRQ 4 (vector ngắt số 36 = 0x24) */
+    register_interrupt_handler(36, serial_interrupt_handler);
 }
 
 /** serial_is_transmit_fifo_empty:

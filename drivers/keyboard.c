@@ -7,6 +7,12 @@
 /* Trạng thái phím Shift */
 static int shift_active = 0;
 
+/* Bộ đệm vòng (Circular / Ring Buffer) lưu trữ các ký tự phím */
+static char kbd_buffer[KBD_BUFFER_SIZE];
+static uint32_t kbd_buf_head = 0; /* Vị trí đọc */
+static uint32_t kbd_buf_tail = 0; /* Vị trí ghi */
+static uint32_t kbd_buf_count = 0; /* Số lượng ký tự đang chờ */
+
 /* Bảng chuyển đổi Scancode Set 1 sang ASCII thường */
 static const char kbd_us_ascii[128] = {
     0,   27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
@@ -52,6 +58,40 @@ uint8_t read_scan_code(void)
     return inb(KBD_DATA_PORT);
 }
 
+void keyboard_put_char(char c)
+{
+    if (kbd_buf_count < KBD_BUFFER_SIZE) {
+        kbd_buffer[kbd_buf_tail] = c;
+        kbd_buf_tail = (kbd_buf_tail + 1) % KBD_BUFFER_SIZE;
+        kbd_buf_count++;
+    }
+}
+
+int keyboard_has_char(void)
+{
+    return kbd_buf_count > 0;
+}
+
+int keyboard_getchar(void)
+{
+    if (kbd_buf_count == 0) {
+        return -1;
+    }
+    char c = kbd_buffer[kbd_buf_head];
+    kbd_buf_head = (kbd_buf_head + 1) % KBD_BUFFER_SIZE;
+    kbd_buf_count--;
+    return (int)(unsigned char)c;
+}
+
+char keyboard_read_char(void)
+{
+    enable_interrupts();
+    while (!keyboard_has_char()) {
+        __asm__ volatile("hlt");
+    }
+    return (char)keyboard_getchar();
+}
+
 static void keyboard_interrupt_handler(struct registers *cpu, struct stack_state *stack, uint32_t interrupt)
 {
     (void)cpu;
@@ -78,29 +118,18 @@ static void keyboard_interrupt_handler(struct registers *cpu, struct stack_state
     if (scancode < 128) {
         char c = shift_active ? kbd_us_ascii_shift[scancode] : kbd_us_ascii[scancode];
         if (c != 0) {
-            /* In ký tự ra màn hình Framebuffer */
-            char buf[2];
-            buf[0] = c;
-            buf[1] = '\0';
-            fb_write(buf, 1);
-
-            /* Đồng thời gửi ký tự ra cổng Serial COM1 */
-            serial_write_char(SERIAL_COM1_BASE, c);
-
-            /* Khi người dùng gõ phím Enter (\n), tự động in dấu nhắc lệnh */
-            if (c == '\n') {
-                const char *prompt = "LittleOS> ";
-                fb_set_color(FB_LIGHT_CYAN, FB_BLACK);
-                fb_write(prompt, 10);
-                fb_set_color(FB_WHITE, FB_BLACK);
-                serial_write(SERIAL_COM1_BASE, prompt, 10);
-            }
+            /* Đưa ký tự vào Ring Buffer để Syscall SYS_READ tiêu thụ */
+            keyboard_put_char(c);
         }
     }
 }
 
 void keyboard_init(void)
 {
+    kbd_buf_head = 0;
+    kbd_buf_tail = 0;
+    kbd_buf_count = 0;
+
     /* Đăng ký hàm xử lý ngắt bàn phím tại IRQ 1 (vector ngắt số 33 = 0x21) */
     register_interrupt_handler(33, keyboard_interrupt_handler);
 

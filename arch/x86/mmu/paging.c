@@ -7,12 +7,15 @@ extern uint32_t boot_page_table1[1024];
 /* Hàm nạp CR3 trong arch/x86/boot/loader.s */
 extern void load_page_directory(uint32_t cr3);
 
+/* Dung lượng tối đa cấp cho chương trình người dùng (16 trang * 4KB = 64KB) */
+#define USER_CODE_MAX_PAGES 16
+
 /* Khung trang (Page frames) và bảng trang dành cho User Process căn chỉnh 4KB */
-static uint32_t  user_page_directory[1024]   __attribute__((aligned(4096)));
-static uint32_t  user_code_page_table[1024]  __attribute__((aligned(4096)));
-static uint32_t  user_stack_page_table[1024] __attribute__((aligned(4096)));
-static uint8_t   user_code_page[4096]         __attribute__((aligned(4096)));
-static uint8_t   user_stack_page[4096]        __attribute__((aligned(4096)));
+static uint32_t  user_page_directory[1024]                  __attribute__((aligned(4096)));
+static uint32_t  user_code_page_table[1024]                 __attribute__((aligned(4096)));
+static uint32_t  user_stack_page_table[1024]                __attribute__((aligned(4096)));
+static uint8_t   user_code_pages[USER_CODE_MAX_PAGES][4096] __attribute__((aligned(4096)));
+static uint8_t   user_stack_page[4096]                      __attribute__((aligned(4096)));
 
 /**
  * paging_init:
@@ -37,7 +40,7 @@ void paging_init(void)
 /**
  * paging_setup_user_process:
  * Cấu hình không gian địa chỉ ảo và nạp mã chương trình người dùng (Chapter 11):
- * 1. Mã lệnh User (Code/Data) được ánh xạ tại 0x00000000 (Entry 0 trong Page Directory).
+ * 1. Toàn bộ 64KB (16 trang) được ánh xạ sẵn tại 0x00000000 (.text, .data, .bss).
  * 2. Ngăn xếp User (Stack) đặt tại 0xBFFFFFFB (Entry 767 trong Page Directory).
  * 3. Bảo toàn vùng nhớ Kernel tại 0xC0000000 (Entry 768) với quyền Supervisor.
  * 4. Nạp địa chỉ vật lý của user_page_directory vào CR3.
@@ -50,32 +53,39 @@ void paging_setup_user_process(uint32_t module_start, uint32_t module_size)
         user_code_page_table[i]  = 0;
         user_stack_page_table[i] = 0;
     }
+    for (int p = 0; p < USER_CODE_MAX_PAGES; p++) {
+        for (int i = 0; i < 4096; i++) {
+            user_code_pages[p][i] = 0;
+        }
+    }
     for (int i = 0; i < 4096; i++) {
-        user_code_page[i]  = 0;
         user_stack_page[i] = 0;
     }
 
-    /* Sao chép mã thực thi từ GRUB module vào frame bộ nhớ của User */
+    /* Sao chép mã thực thi từ module vào page frames */
     uint8_t *src = (uint8_t *)module_start;
-    uint32_t copy_len = (module_size < 4096) ? module_size : 4096;
-    for (uint32_t i = 0; i < copy_len; i++) {
-        user_code_page[i] = src[i];
+    for (uint32_t p = 0; p < USER_CODE_MAX_PAGES; p++) {
+        uint32_t offset = p * 4096;
+        if (offset < module_size) {
+            uint32_t to_copy = 4096;
+            if (offset + to_copy > module_size) {
+                to_copy = module_size - offset;
+            }
+            for (uint32_t i = 0; i < to_copy; i++) {
+                user_code_pages[p][i] = src[offset + i];
+            }
+        }
+
+        /* Ánh xạ đầy đủ 64KB User Code/Data/BSS bắt đầu từ địa chỉ ảo 0x00000000 */
+        user_code_page_table[p] = VIRTUAL_TO_PHYSICAL(user_code_pages[p]) | PAGING_USER_PAGE;
     }
+    user_page_directory[0] = VIRTUAL_TO_PHYSICAL(user_code_page_table) | PAGING_USER_PAGE;
 
-    /* 1. Ánh xạ User Code tại địa chỉ ảo 0x00000000 */
-    user_code_page_table[0] = VIRTUAL_TO_PHYSICAL(user_code_page) | PAGING_USER_PAGE;
-    user_page_directory[0]  = VIRTUAL_TO_PHYSICAL(user_code_page_table) | PAGING_USER_PAGE;
-
-    /* 2. Ánh xạ User Stack tại địa chỉ ảo 0xBFFFFFFB
-     * Entry 767 trong Directory (0xBFC00000 - 0xBFFFFFFF)
-     * Entry 1023 trong Table (0xBFFFF000 - 0xBFFFFFFF)
-     */
+    /* 2. Ánh xạ User Stack tại địa chỉ ảo 0xBFFFFFFB */
     user_stack_page_table[1023] = VIRTUAL_TO_PHYSICAL(user_stack_page) | PAGING_USER_PAGE;
     user_page_directory[767]    = VIRTUAL_TO_PHYSICAL(user_stack_page_table) | PAGING_USER_PAGE;
 
-    /* 3. Giữ nguyên vùng nhớ Kernel ở Higher-Half (0xC0000000 trở lên)
-     * Sao chép ánh xạ Kernel từ boot_page_directory[768] (quyền Supervisor)
-     */
+    /* 3. Giữ nguyên vùng nhớ Kernel ở Higher-Half (0xC0000000 trở lên) */
     user_page_directory[768] = boot_page_directory[768];
 
     /* 4. Kích hoạt bảng phân trang của User bằng cách nạp địa chỉ vật lý vào CR3 */
