@@ -1,3 +1,12 @@
+/*Sanemy - Nguyen Huy Quang x Gemini 3-8-flash 
+    Day 25 / 9 / 2026 
+    This file is part of the Sanemy - Nguyen Huy Quang x Gemini 3-8-flash 
+    coursework for the course "Advanced Embedded Systems" at the
+    HUST, Vietnam.
+    GPL v3 License 
+*/
+
+
 #include "kernel/kheap.h"
 #include "drivers/framebuffer.h"
 #include "drivers/serial.h"
@@ -99,7 +108,7 @@ void *kmalloc(size_t size)
 
                 /* Điền thông tin vào header */
                 kheap_header_t *header = (kheap_header_t *)&kheap_memory[start_block * KHEAP_BLOCK_SIZE];
-                header->magic = KHEAP_MAGIC;
+                header->magic = KHEAP_MAGIC; //check buffer overflow here
                 header->start_block = start_block;
                 header->num_blocks = blocks_needed;
                 header->size = size;
