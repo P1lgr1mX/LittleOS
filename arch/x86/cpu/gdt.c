@@ -1,4 +1,4 @@
-#include "gdt.h"
+#include "arch/x86/gdt.h"
 
 #define GDT_ENTRIES 6
 
@@ -6,11 +6,11 @@ static struct gdt_entry gdt[GDT_ENTRIES];
 static struct gdt_ptr gdtr;
 static struct tss_entry tss;
 
-/* Các hàm Assembly trong boot/loader.s */
+/* Các hàm Assembly trong arch/x86/boot/loader.s */
 extern void load_gdt(struct gdt_ptr *ptr);
-extern void load_tss(unsigned short tss_selector);
+extern void load_tss(uint16_t tss_selector);
 
-static void gdt_set_gate(int num, unsigned int base, unsigned int limit, unsigned char access, unsigned char gran)
+static void gdt_set_gate(int num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran)
 {
     gdt[num].base_low = (base & 0xFFFF);
     gdt[num].base_middle = (base >> 16) & 0xFF;
@@ -21,17 +21,17 @@ static void gdt_set_gate(int num, unsigned int base, unsigned int limit, unsigne
     gdt[num].access = access;
 }
 
-static void write_tss(int num, unsigned short ss0, unsigned int esp0)
+static void write_tss(int num, uint16_t ss0, uint32_t esp0)
 {
-    unsigned int base = (unsigned int)&tss;
-    unsigned int limit = sizeof(tss) - 1;
+    uint32_t base = (uint32_t)&tss;
+    uint32_t limit = sizeof(tss) - 1;
 
     /* Cài đặt TSS Descriptor vào GDT: Type 0x89 (32-bit TSS khả dụng, DPL=0, Present=1) */
     gdt_set_gate(num, base, limit, 0x89, 0x00);
 
     /* Xóa sạch cấu trúc TSS */
-    for (unsigned int i = 0; i < sizeof(tss); i++) {
-        ((unsigned char *)&tss)[i] = 0;
+    for (uint32_t i = 0; i < sizeof(tss); i++) {
+        ((uint8_t *)&tss)[i] = 0;
     }
 
     tss.ss0 = ss0;
@@ -41,7 +41,7 @@ static void write_tss(int num, unsigned short ss0, unsigned int esp0)
     tss.iomap_base = sizeof(struct tss_entry);
 }
 
-void tss_set_kernel_stack(unsigned int stack)
+void tss_set_kernel_stack(uint32_t stack)
 {
     tss.esp0 = stack;
 }
@@ -49,7 +49,7 @@ void tss_set_kernel_stack(unsigned int stack)
 void gdt_init(void)
 {
     gdtr.limit = (sizeof(struct gdt_entry) * GDT_ENTRIES) - 1;
-    gdtr.base = (unsigned int)&gdt;
+    gdtr.base = (uint32_t)&gdt;
 
     /* Mục 0: Null descriptor */
     gdt_set_gate(0, 0, 0, 0, 0);

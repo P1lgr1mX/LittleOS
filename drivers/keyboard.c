@@ -1,8 +1,8 @@
-#include "keyboard.h"
-#include "isr.h"
-#include "io.h"
-#include "framebuffer.h"
-#include "serial.h"
+#include "drivers/keyboard.h"
+#include "arch/x86/isr.h"
+#include "arch/x86/io.h"
+#include "drivers/framebuffer.h"
+#include "drivers/serial.h"
 
 /* Trạng thái phím Shift */
 static int shift_active = 0;
@@ -47,18 +47,18 @@ static const char kbd_us_ascii_shift[128] = {
     0, 0, 0, '-', 0, 0, 0, '+', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-unsigned char read_scan_code(void)
+uint8_t read_scan_code(void)
 {
     return inb(KBD_DATA_PORT);
 }
 
-static void keyboard_interrupt_handler(struct registers *cpu, struct stack_state *stack, unsigned int interrupt)
+static void keyboard_interrupt_handler(struct registers *cpu, struct stack_state *stack, uint32_t interrupt)
 {
     (void)cpu;
     (void)stack;
     (void)interrupt;
 
-    unsigned char scancode = read_scan_code();
+    uint8_t scancode = read_scan_code();
 
     /* Bắt sự kiện nhấn / nhả phím Shift */
     if (scancode == 0x2A || scancode == 0x36) {
@@ -89,7 +89,7 @@ static void keyboard_interrupt_handler(struct registers *cpu, struct stack_state
 
             /* Khi người dùng gõ phím Enter (\n), tự động in dấu nhắc lệnh */
             if (c == '\n') {
-                const char *prompt = "AetherOS> ";
+                const char *prompt = "LittleOS> ";
                 fb_set_color(FB_LIGHT_CYAN, FB_BLACK);
                 fb_write(prompt, 10);
                 fb_set_color(FB_WHITE, FB_BLACK);

@@ -1,18 +1,18 @@
-#include "paging.h"
+#include "arch/x86/mmu/paging.h"
 
-/* Các cấu trúc phân trang được định nghĩa và căn chỉnh 4KB trong boot/loader.s */
-extern unsigned int boot_page_directory[1024];
-extern unsigned int boot_page_table1[1024];
+/* Các cấu trúc phân trang được định nghĩa và căn chỉnh 4KB trong arch/x86/boot/loader.s */
+extern uint32_t boot_page_directory[1024];
+extern uint32_t boot_page_table1[1024];
 
-/* Hàm nạp CR3 trong boot/loader.s */
-extern void load_page_directory(unsigned int cr3);
+/* Hàm nạp CR3 trong arch/x86/boot/loader.s */
+extern void load_page_directory(uint32_t cr3);
 
 /* Khung trang (Page frames) và bảng trang dành cho User Process căn chỉnh 4KB */
-static unsigned int  user_page_directory[1024]  __attribute__((aligned(4096)));
-static unsigned int  user_code_page_table[1024] __attribute__((aligned(4096)));
-static unsigned int  user_stack_page_table[1024] __attribute__((aligned(4096)));
-static unsigned char user_code_page[4096]        __attribute__((aligned(4096)));
-static unsigned char user_stack_page[4096]       __attribute__((aligned(4096)));
+static uint32_t  user_page_directory[1024]   __attribute__((aligned(4096)));
+static uint32_t  user_code_page_table[1024]  __attribute__((aligned(4096)));
+static uint32_t  user_stack_page_table[1024] __attribute__((aligned(4096)));
+static uint8_t   user_code_page[4096]         __attribute__((aligned(4096)));
+static uint8_t   user_stack_page[4096]        __attribute__((aligned(4096)));
 
 /**
  * paging_init:
@@ -23,7 +23,7 @@ static unsigned char user_stack_page[4096]       __attribute__((aligned(4096)));
 void paging_init(void)
 {
     /* Lấy địa chỉ vật lý của boot_page_table1 bằng cách trừ đi 0xC0000000 */
-    unsigned int pt_phys = VIRTUAL_TO_PHYSICAL(boot_page_table1);
+    uint32_t pt_phys = VIRTUAL_TO_PHYSICAL(boot_page_table1);
 
     /*
      * Bit 0: Present = 1 (trang có mặt trong RAM)
@@ -42,7 +42,7 @@ void paging_init(void)
  * 3. Bảo toàn vùng nhớ Kernel tại 0xC0000000 (Entry 768) với quyền Supervisor.
  * 4. Nạp địa chỉ vật lý của user_page_directory vào CR3.
  */
-void paging_setup_user_process(unsigned int module_start, unsigned int module_size)
+void paging_setup_user_process(uint32_t module_start, uint32_t module_size)
 {
     /* Xóa sạch các bảng trang và frame */
     for (int i = 0; i < 1024; i++) {
@@ -56,9 +56,9 @@ void paging_setup_user_process(unsigned int module_start, unsigned int module_si
     }
 
     /* Sao chép mã thực thi từ GRUB module vào frame bộ nhớ của User */
-    unsigned char *src = (unsigned char *)module_start;
-    unsigned int copy_len = (module_size < 4096) ? module_size : 4096;
-    for (unsigned int i = 0; i < copy_len; i++) {
+    uint8_t *src = (uint8_t *)module_start;
+    uint32_t copy_len = (module_size < 4096) ? module_size : 4096;
+    for (uint32_t i = 0; i < copy_len; i++) {
         user_code_page[i] = src[i];
     }
 

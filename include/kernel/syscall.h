@@ -1,5 +1,7 @@
-#ifndef SYSCALL_H
-#define SYSCALL_H
+#ifndef KERNEL_SYSCALL_H
+#define KERNEL_SYSCALL_H
+
+#include "types.h"
 
 #define ENOSYS 38    
 
@@ -7,11 +9,6 @@
 #define SYS_FORK  2
 #define SYS_READ  3
 #define SYS_WRITE 4
-
-#ifndef _UINT32_T_DECLARED
-#define _UINT32_T_DECLARED
-typedef unsigned int uint32_t;
-#endif
 
 /*
  * Cấu trúc con trỏ ngăn xếp pt_regs khớp chính xác 100% với
@@ -44,4 +41,4 @@ void do_syscall_in_C(struct pt_regs *regs);
 void Int128Handler(void);
 void syscall_init(void);
 
-#endif /* SYSCALL_H */
+#endif /* KERNEL_SYSCALL_H */

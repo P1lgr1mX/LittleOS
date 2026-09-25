@@ -7,7 +7,7 @@ QEMU = qemu-system-i386
 # Cờ biên dịch và liên kết
 CFLAGS = -m32 -nostdlib -nostdinc -fno-builtin -fno-stack-protector \
          -nostartfiles -nodefaultlibs -Wall -Wextra -Werror -c \
-         -I. -Idrivers -Ikernel
+         -I. -Iinclude -Iinclude/arch/x86 -Iinclude/drivers -Iinclude/kernel -Iarch/x86/mmu
 ASFLAGS = -f elf
 LDFLAGS = -T link.ld -melf_i386
 
@@ -15,21 +15,23 @@ LDFLAGS = -T link.ld -melf_i386
 BUILD_DIR = build
 ISO_DIR = $(BUILD_DIR)/iso
 
-# Danh sách mã nguồn
-ASM_SOURCES = boot/loader.s \
-              drivers/io.s \
-              drivers/idt.s \
-              drivers/isr.s \
+# Danh sách mã nguồn Assembly
+ASM_SOURCES = arch/x86/boot/loader.s \
+              arch/x86/cpu/io.s \
+              arch/x86/cpu/idt.s \
+              arch/x86/cpu/isr.s \
               kernel/syscall.s
 
+# Danh sách mã nguồn C
 C_SOURCES = kernel/kmain.c \
-            kernel/paging.c \
+            kernel/kheap.c \
             kernel/syscall.c \
+            arch/x86/cpu/gdt.c \
+            arch/x86/cpu/idt.c \
+            arch/x86/cpu/isr.c \
+            arch/x86/mmu/paging.c \
             drivers/framebuffer.c \
             drivers/serial.c \
-            drivers/gdt.c \
-            drivers/idt.c \
-            drivers/isr.c \
             drivers/pic.c \
             drivers/keyboard.c
 
@@ -38,7 +40,7 @@ ASM_OBJECTS = $(patsubst %.s, $(BUILD_DIR)/%.s.o, $(ASM_SOURCES))
 C_OBJECTS   = $(patsubst %.c, $(BUILD_DIR)/%.c.o, $(C_SOURCES))
 OBJECTS     = $(ASM_OBJECTS) $(C_OBJECTS)
 
-# Module
+# Module người dùng
 MODULE_SRC = modules/program.s
 MODULE_BIN = modules/program
 
@@ -47,8 +49,8 @@ KERNEL = $(BUILD_DIR)/kernel.elf
 OS_ISO = $(BUILD_DIR)/os.iso
 
 # Các file cấu hình GRUB nguồn
-GRUB_MENU = boot/grub/menu.lst
-GRUB_STAGE2 = boot/grub/stage2_eltorito
+GRUB_MENU = arch/x86/boot/grub/menu.lst
+GRUB_STAGE2 = arch/x86/boot/grub/stage2_eltorito
 
 .PHONY: all run run-kernel clean
 

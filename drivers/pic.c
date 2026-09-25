@@ -1,7 +1,7 @@
-#include "pic.h"
-#include "io.h"
+#include "drivers/pic.h"
+#include "arch/x86/io.h"
 
-void pic_ack(unsigned char irq)
+void pic_ack(uint8_t irq)
 {
     if (irq < PIC1_START_INTERRUPT || irq > PIC2_END_INTERRUPT) {
         return; 
@@ -12,7 +12,7 @@ void pic_ack(unsigned char irq)
     outb(PIC1_PORT_A, PIC_ACK);
 }
 
-void pic_set_mask(unsigned char mask1, unsigned char mask2)
+void pic_set_mask(uint8_t mask1, uint8_t mask2)
 {
     outb(PIC1_PORT_B, mask1);
     outb(PIC2_PORT_B, mask2);

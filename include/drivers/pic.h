@@ -1,5 +1,7 @@
-#ifndef PIC_H
-#define PIC_H
+#ifndef DRIVERS_PIC_H
+#define DRIVERS_PIC_H
+
+#include "types.h"
 
 #define PIC1_PORT_A 0x20 /* PIC1 Command / Status port */
 #define PIC1_PORT_B 0x21 /* PIC1 Data / Mask port */
@@ -11,8 +13,8 @@
 #define PIC2_END_INTERRUPT   (PIC2_START_INTERRUPT + 7) /* 47 */
 #define PIC_ACK              0x20 /* Lệnh xác nhận hoàn tất ngắt */
 
-void pic_ack(unsigned char irq);
+void pic_ack(uint8_t irq);
 void pic_remap(void);
-void pic_set_mask(unsigned char mask1, unsigned char mask2);
+void pic_set_mask(uint8_t mask1, uint8_t mask2);
 
-#endif /* PIC_H */
+#endif /* DRIVERS_PIC_H */

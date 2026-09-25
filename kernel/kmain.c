@@ -1,26 +1,30 @@
-#include "framebuffer.h"
-#include "serial.h"
-#include "io.h"
-#include "gdt.h"
-#include "idt.h"
-#include "pic.h"
-#include "keyboard.h"
-#include "multiboot.h"
-#include "paging.h"
-#include "syscall.h"
-
-typedef void (*call_module_t)(void);
+#include "types.h"
+#include "drivers/framebuffer.h"
+#include "drivers/serial.h"
+#include "drivers/pic.h"
+#include "drivers/keyboard.h"
+#include "arch/x86/io.h"
+#include "arch/x86/gdt.h"
+#include "arch/x86/idt.h"
+#include "arch/x86/mmu/paging.h"
+#include "kernel/syscall.h"
+#include "kernel/kheap.h"
+#include "kernel/multiboot.h"
 
 /* Các nhãn ranh giới bộ nhớ kernel từ link.ld */
-extern unsigned int kernel_physical_start;
-extern unsigned int kernel_physical_end;
-extern unsigned int kernel_virtual_start;
-extern unsigned int kernel_virtual_end;
+extern uint32_t kernel_physical_start;
+extern uint32_t kernel_physical_end;
+extern uint32_t kernel_virtual_start;
+extern uint32_t kernel_virtual_end;
+
+/* Stack kernel được cấp trong arch/x86/boot/loader.s */
+extern uint8_t kernel_stack[];
+extern const uint32_t KERNEL_STACK_SIZE;
 
 /* Hàm tính độ dài chuỗi ký tự kết thúc bằng '\0' */
-static unsigned int strlen(const char *str)
+static uint32_t strlen(const char *str)
 {
-    unsigned int len = 0;
+    uint32_t len = 0;
     while (str[len] != '\0') {
         len++;
     }
@@ -34,7 +38,7 @@ static void print(const char *str)
 }
 
 /* Hàm phụ trợ in số nguyên 32-bit dưới dạng Hexadecimal (0x12345678) */
-static void print_hex(unsigned int n)
+static void print_hex(uint32_t n)
 {
     char buf[11];
     buf[0] = '0';
@@ -47,7 +51,7 @@ static void print_hex(unsigned int n)
     print(buf);
 }
 
-int kmain(unsigned int ebx)
+int kmain(uint32_t ebx)
 {
     /* Xóa sạch màn hình và đưa con trỏ về (0, 0) */
     fb_clear();    
@@ -64,29 +68,6 @@ int kmain(unsigned int ebx)
     print("[ OK ] Cursor auto-advance enabled.\n");
     print("[ OK ] Hardware cursor synchronization active.\n\n");
 
-    fb_set_color(FB_LIGHT_BROWN, FB_BLACK);
-    print("Testing auto-scroll functionality (printing 25 lines)...\n");
-
-    /* Kiểm tra tính năng tự động cuộn màn hình khi in nhiều dòng */
-    fb_set_color(FB_WHITE, FB_BLACK);
-    for (int i = 1; i <= 25; i++) {
-        print("  -> Line ");
-        char buf[4];
-        if (i >= 10) {
-            buf[0] = '0' + (char)(i / 10);
-            buf[1] = '0' + (char)(i % 10);
-            buf[2] = '\0';
-        } else {
-            buf[0] = '0' + (char)i;
-            buf[1] = '\0';
-        }
-        print(buf);
-        print(": scrolling test in progress...\n");
-    }
-
-    fb_set_color(FB_LIGHT_GREEN, FB_BLACK);
-    print("\n[ OK ] Auto-scroll test completed successfully!\n");
-
     /* Khởi tạo và kiểm tra Serial driver (COM1: 115200 8N1) */
     fb_set_color(FB_LIGHT_MAGENTA, FB_BLACK);
     serial_config_baud_rate(SERIAL_COM1_BASE, 115200);
@@ -97,18 +78,10 @@ int kmain(unsigned int ebx)
     /* Ghi dữ liệu kiểm tra ra cổng serial COM1 */
     serial_write_char(SERIAL_COM1_BASE, 'A');
     serial_write_char(SERIAL_COM1_BASE, 'E');
-    const char *serial_msg = " [Serial COM1] AetherOS Serial Driver initialized successfully!\r\n";
+    const char *serial_msg = " [Serial COM1] LittleOS Serial Driver initialized successfully!\r\n";
     serial_write(SERIAL_COM1_BASE, serial_msg, strlen(serial_msg));
 
     print("[ OK ] Serial driver initialized successfully!\n");
-
-    /* Kiểm tra tính năng ghi chuỗi trực tiếp */
-    fb_set_color(FB_LIGHT_CYAN, FB_BLACK);
-    const char *fb_test = "[ OK ] Framebuffer write() test passed!\n";
-    fb_write(fb_test, strlen(fb_test));
-
-    fb_set_color(FB_LIGHT_GREEN, FB_BLACK);
-    print("\n[ SUCCESS ] Driver write(), scroll & serial completed without error!\n");
 
     /* Khởi tạo phân đoạn bộ nhớ GDT */
     gdt_init();
@@ -134,11 +107,32 @@ int kmain(unsigned int ebx)
     paging_init();
     print("[ OK ] Higher-Half Paging active (Kernel at 0xC0100000, 3GB Virtual Base).\n");
 
+    /* Khởi tạo Kernel Bitmap Heap */
+    kheap_init();
+    print("[ OK ] Kernel Bitmap Heap initialized (256 KB, 32B block size).\n");
+
+    /* Kiểm tra kiểm thử cấp phát động kmalloc / kfree */
+    fb_set_color(FB_LIGHT_BROWN, FB_BLACK);
+    char *test_alloc = (char *)kmalloc(128);
+    if (test_alloc) {
+        const char *test_str = "Heap allocation test: OK!\n";
+        for (uint32_t i = 0; i < strlen(test_str); i++) {
+            test_alloc[i] = test_str[i];
+        }
+        test_alloc[strlen(test_str)] = '\0';
+        print("  -> ");
+        print(test_alloc);
+        kheap_print_stats();
+        kfree(test_alloc);
+        print("  -> Freed test block. ");
+        kheap_print_stats();
+    }
+
     /* Hiển thị phạm vi bộ nhớ của Kernel */
-    unsigned int p_start = (unsigned int)&kernel_physical_start;
-    unsigned int p_end   = (unsigned int)&kernel_physical_end;
-    unsigned int v_start = (unsigned int)&kernel_virtual_start;
-    unsigned int v_end   = (unsigned int)&kernel_virtual_end;
+    uint32_t p_start = (uint32_t)&kernel_physical_start;
+    uint32_t p_end   = (uint32_t)&kernel_physical_end;
+    uint32_t v_start = (uint32_t)&kernel_virtual_start;
+    uint32_t v_end   = (uint32_t)&kernel_virtual_end;
 
     fb_set_color(FB_LIGHT_CYAN, FB_BLACK);
     print("[ MEM ] Kernel Physical: ");
@@ -162,46 +156,33 @@ int kmain(unsigned int ebx)
     print("LittleOS> ");
     fb_set_color(FB_WHITE, FB_BLACK);
 
-    extern unsigned char kernel_stack[];
-    #define KERNEL_STACK_SIZE 4096
-
     multiboot_info_t *mbinfo = (multiboot_info_t *) ebx;
 
     /* Kiểm tra cờ Multiboot và số lượng module hợp lệ trước khi gọi */
     if ((mbinfo->flags & MULTIBOOT_INFO_MODS) && mbinfo->mods_count > 0) {
         multiboot_module_t *mod = (multiboot_module_t *) mbinfo->mods_addr;
-        unsigned int mod_start = mod->mod_start;
-        unsigned int mod_size = mod->mod_end - mod->mod_start;
+        uint32_t mod_start = mod->mod_start;
+        uint32_t mod_size = mod->mod_end - mod->mod_start;
 
         fb_set_color(FB_LIGHT_GREEN, FB_BLACK);
         print("[ OK ] GRUB module found! Configuring User Mode (Ring 3)...\n");
 
-        /* 1. Cấu hình phân trang cho User Mode (Chapter 11):
-         * - Map mã lệnh User tại 0x00000000 (User accessible, U/S=1)
-         * - Map ngăn xếp User tại 0xBFFFFFFB (User accessible, U/S=1)
-         * - Giữ nguyên ánh xạ Kernel Higher-Half 0xC0000000 (Supervisor, U/S=0)
-         * - Nạp CR3 với User Page Directory
-         */
+        /* Cấu hình phân trang cho User Mode */
         paging_setup_user_process(mod_start, mod_size);
         print("[ OK ] User Page Directory & Tables mapped with U/S = 1.\n");
 
-        /* 2. Cài đặt Kernel Stack vào TSS:
-         * Đảm bảo khi CPU từ Ring 3 gặp ngắt/ngoại lệ/syscall nhảy về Ring 0,
-         * CPU sẽ nạp đúng đỉnh ngăn xếp kernel an toàn.
-         */
-        tss_set_kernel_stack((unsigned int)kernel_stack + KERNEL_STACK_SIZE);
+        /* Cài đặt Kernel Stack vào TSS */
+        tss_set_kernel_stack((uint32_t)kernel_stack + 4096);
         print("[ OK ] TSS Ring 0 stack pointer configured.\n");
 
-        /* 3. Chuẩn bị bước nhảy sang User Mode */
+        /* Chuẩn bị bước nhảy sang User Mode */
         fb_set_color(FB_LIGHT_CYAN, FB_BLACK);
         print("[ INFO ] Executing iret to drop CPU privilege into Ring 3...\n");
         const char *serial_user_msg = "[User Mode] Switching to Ring 3 via iret (CS=0x1B, SS=0x23, EIP=0x0)...\r\n";
         serial_write(SERIAL_COM1_BASE, serial_user_msg, strlen(serial_user_msg));
 
-        /* 4. Nhảy sang Ring 3: EIP = 0x00000000, ESP = 0xBFFFFFFB */
+        /* Nhảy sang Ring 3: EIP = 0x00000000, ESP = 0xBFFFFFFB */
         enter_user_mode(USER_ENTRY_POINT, USER_STACK_TOP);
-
-        /* Sau khi vào User Mode, CPU sẽ thực thi tại 0x00000000 */
     } else {
         fb_set_color(FB_LIGHT_RED, FB_BLACK);
         print("[ WARN ] No Multiboot module found.\n");

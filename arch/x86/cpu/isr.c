@@ -1,15 +1,15 @@
-#include "isr.h"
-#include "pic.h"
-#include "framebuffer.h"
+#include "arch/x86/isr.h"
+#include "drivers/pic.h"
+#include "drivers/framebuffer.h"
 
 static isr_handler_t interrupt_handlers[256];
 
-void register_interrupt_handler(unsigned char n, isr_handler_t handler)
+void register_interrupt_handler(uint8_t n, isr_handler_t handler)
 {
     interrupt_handlers[n] = handler;
 }
 
-void interrupt_handler(struct registers *cpu, struct stack_state *stack, unsigned int interrupt)
+void interrupt_handler(struct registers *cpu, struct stack_state *stack, uint32_t interrupt)
 {
     (void)cpu;
     (void)stack;
@@ -39,6 +39,6 @@ void interrupt_handler(struct registers *cpu, struct stack_state *stack, unsigne
 
     /* Nếu là ngắt phần cứng PIC (32 - 47), gửi tín hiệu báo nhận PIC ACK */
     if (interrupt >= 32 && interrupt <= 47) {
-        pic_ack((unsigned char)interrupt);
+        pic_ack((uint8_t)interrupt);
     }
 }

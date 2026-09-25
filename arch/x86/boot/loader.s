@@ -1,5 +1,5 @@
 ; =============================================================================
-; boot/loader.s: Điểm nhập (Entry point) và Bootstrap Paging cho Higher-Half Kernel
+; arch/x86/boot/loader.s: Điểm nhập (Entry point) và Bootstrap Paging cho Higher-Half Kernel
 ; =============================================================================
 
 global _start
@@ -56,6 +56,7 @@ loader:
     ;    Nhãn `higher_half` nằm trong section .text (ở mốc >= 0xC0100000).
     lea eax, [higher_half]
     jmp eax
+
 ; =============================================================================
 ; Phân vùng .text: Mã lệnh chính của Kernel, chạy tại địa chỉ ảo Higher-Half (>= 0xC0100000)
 ; =============================================================================
@@ -127,7 +128,7 @@ enter_user_mode:
     ; Thứ tự pop của CPU: EIP -> CS -> EFLAGS -> ESP -> SS
     push dword 0x23                 ; SS: 0x20 | 3 (User Data Selector với RPL=3)
     push ebx                        ; ESP: Đỉnh ngăn xếp User (0xBFFFFFFB)
-    push dword 0x02                 ; EFLAGS: Bit 1 luôn là 1, IF=0 (ngắt bị tắt tạm thời)
+    push dword 0x202                ; EFLAGS: Bit 1 luôn là 1, Bit 9 (IF=1: bật cờ ngắt)
     push dword 0x1B                 ; CS: 0x18 | 3 (User Code Selector với RPL=3)
     push eax                        ; EIP: Điểm bắt đầu thực thi của User (0x00000000)
 

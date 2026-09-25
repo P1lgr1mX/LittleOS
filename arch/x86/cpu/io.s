@@ -8,7 +8,7 @@ outb:
     ret                  ; trở về hàm gọi C 
 
 global inb 
-inb : 
+inb: 
     mov dx, [esp + 4]    ; port: địa chỉ cổng I/O (16-bit)
     in al, dx            ; nhận 1 byte từ cổng DX vào AL
     ret                  ; trở về hàm gọi C
