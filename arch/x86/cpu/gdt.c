@@ -6,7 +6,7 @@ static struct gdt_entry gdt[GDT_ENTRIES];
 static struct gdt_ptr gdtr;
 static struct tss_entry tss;
 
-/* Các hàm Assembly trong arch/x86/boot/loader.s */
+/* Assembly routines declared in arch/x86/boot/loader.s */
 extern void load_gdt(struct gdt_ptr *ptr);
 extern void load_tss(uint16_t tss_selector);
 
@@ -26,10 +26,10 @@ static void write_tss(int num, uint16_t ss0, uint32_t esp0)
     uint32_t base = (uint32_t)&tss;
     uint32_t limit = sizeof(tss) - 1;
 
-    /* Cài đặt TSS Descriptor vào GDT: Type 0x89 (32-bit TSS khả dụng, DPL=0, Present=1) */
+    /* Install TSS descriptor into GDT: Type 0x89 (32-bit available TSS, DPL=0, Present=1) */
     gdt_set_gate(num, base, limit, 0x89, 0x00);
 
-    /* Xóa sạch cấu trúc TSS */
+    /* Clear the entire TSS structure */
     for (uint32_t i = 0; i < sizeof(tss); i++) {
         ((uint8_t *)&tss)[i] = 0;
     }
@@ -51,27 +51,27 @@ void gdt_init(void)
     gdtr.limit = (sizeof(struct gdt_entry) * GDT_ENTRIES) - 1;
     gdtr.base = (uint32_t)&gdt;
 
-    /* Mục 0: Null descriptor */
+    /* Entry 0: Mandatory null descriptor */
     gdt_set_gate(0, 0, 0, 0, 0);
 
-    /* Mục 1: Kernel Code Segment (0x08): Base 0, Limit 4GB, RX, Ring 0, 4KB granularity */
+    /* Entry 1: Kernel Code Segment (0x08): Base 0, Limit 4GB, RX, Ring 0, 4KB granularity */
     gdt_set_gate(1, 0, 0xFFFFFFFF, 0x9A, 0xCF);
 
-    /* Mục 2: Kernel Data Segment (0x10): Base 0, Limit 4GB, RW, Ring 0, 4KB granularity */
+    /* Entry 2: Kernel Data Segment (0x10): Base 0, Limit 4GB, RW, Ring 0, 4KB granularity */
     gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF);
 
-    /* Mục 3: User Code Segment (0x18): Base 0, Limit 4GB, RX, Ring 3 (DPL=3), 4KB granularity */
+    /* Entry 3: User Code Segment (0x18): Base 0, Limit 4GB, RX, Ring 3 (DPL=3), 4KB granularity */
     gdt_set_gate(3, 0, 0xFFFFFFFF, 0xFA, 0xCF);
 
-    /* Mục 4: User Data Segment (0x20): Base 0, Limit 4GB, RW, Ring 3 (DPL=3), 4KB granularity */
+    /* Entry 4: User Data Segment (0x20): Base 0, Limit 4GB, RW, Ring 3 (DPL=3), 4KB granularity */
     gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF);
 
-    /* Mục 5: Task State Segment (TSS) (0x28): Cần thiết khi chuyển đặc quyền Ring 3 -> Ring 0 */
+    /* Entry 5: Task State Segment (0x28): Required for Ring 3 -> Ring 0 stack privilege transition */
     write_tss(5, SEGMENT_KERNEL_DS, 0);
 
-    /* Nạp GDTR */
+    /* Load GDTR */
     load_gdt(&gdtr);
 
-    /* Nạp Task Register (TR) */
+    /* Load Task Register (TR) */
     load_tss(SEGMENT_TSS);
 }

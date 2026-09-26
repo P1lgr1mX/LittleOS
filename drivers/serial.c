@@ -3,7 +3,7 @@
 #include "arch/x86/io.h"
 #include "arch/x86/isr.h"
 
-#define SERIAL_COM1_BASE                0x3F8 /* Cổng base của COM1 */
+#define SERIAL_COM1_BASE                0x3F8 /* COM1 base I/O port address */
 #define SERIAL_DATA_PORT(base)          (base)
 #define SERIAL_INT_ENABLE_PORT(base)    (base + 1)
 #define SERIAL_FIFO_COMMAND_PORT(base)  (base + 2)
@@ -23,19 +23,19 @@ void serial_config_baud_rate(uint32_t base, uint32_t baud_rate)
 
 void serial_config_line(uint16_t com)
 {
-    /* 0x03: 8 bit dữ liệu, 1 stop bit, không kiểm tra chẵn lẻ (8N1), tắt DLAB */
+    /* 0x03: 8 data bits, 1 stop bit, no parity (8N1), DLAB disabled */
     outb(SERIAL_LINE_COMMAND_PORT(com), 0x03);
 }
 
 void serial_config_buffers(uint16_t com)
 {
-    /* 0x07: Bật FIFO, xóa buffer, ngưỡng ngắt 1 byte (phản hồi tức thì) */
+    /* 0x07: Enable FIFO, clear transmit/receive queues, 1-byte trigger threshold */
     outb(SERIAL_FIFO_COMMAND_PORT(com), 0x07);
 }
 
 void serial_config_modem(uint16_t com)
 {
-    /* 0x0B = 0000 1011b: Bit 3 (OUT2: bật ngắt UART tới PIC), Bit 1 (RTS=1), Bit 0 (DTR=1) */
+    /* 0x0B = 0000 1011b: Bit 3 (OUT2: route UART interrupts to PIC), Bit 1 (RTS=1), Bit 0 (DTR=1) */
     outb(SERIAL_MODEM_COMMAND_PORT(com), 0x0B);
 }
 
@@ -48,7 +48,7 @@ static void serial_interrupt_handler(struct registers *cpu, struct stack_state *
     while (serial_receive(SERIAL_COM1_BASE)) {
         int c = serial_read_char(SERIAL_COM1_BASE);
         if (c != -1) {
-            /* Đồng bộ ký tự nhận được vào bộ đệm bàn phím cho User Ring 3 */
+            /* Feed received serial character into the shared keyboard ring buffer */
             keyboard_put_char((char)c);
         }
     }
@@ -61,19 +61,20 @@ void serial_init(void)
     serial_config_buffers(SERIAL_COM1_BASE);
     serial_config_modem(SERIAL_COM1_BASE);
 
-    /* Bật ngắt khi có dữ liệu đến (Received Data Available Interrupt) */
+    /* Enable Received Data Available Interrupt (IER bit 0) */
     outb(SERIAL_INT_ENABLE_PORT(SERIAL_COM1_BASE), 0x01);
 
-    /* Đăng ký trình xử lý ngắt IRQ 4 (vector ngắt số 36 = 0x24) */
+    /* Register interrupt handler for COM1 IRQ 4 (IDT interrupt vector 36 = 0x24) */
     register_interrupt_handler(36, serial_interrupt_handler);
 }
 
-/** serial_is_transmit_fifo_empty:
- * Checks whether the transmit FIFO queue is empty or not for the given COM port.
+/**
+ * serial_is_transmit_fifo_empty:
+ * Checks whether the UART transmitter holding register is empty.
  */
 int serial_is_transmit_fifo_empty(uint32_t com)
 {
-    /* 0x20 = 0010 0000: Bit 5 (Transmitter Holding Register Empty) */
+    /* Bit 5 (0x20): Transmitter Holding Register Empty (THRE) */
     return inb(SERIAL_LINE_STATUS_PORT(com)) & 0x20;
 }
 
@@ -95,7 +96,7 @@ int serial_write_char(uint32_t com, char c)
 
 int serial_receive(uint32_t com)
 {
-    /* Bit 0: Data Ready (1 khi có byte dữ liệu trong bộ đệm nhận) */
+    /* Bit 0: Data Ready indicator (1 when receive FIFO contains data) */
     return inb(SERIAL_LINE_STATUS_PORT(com)) & 1;
 }
 

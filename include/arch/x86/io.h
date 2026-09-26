@@ -5,25 +5,27 @@
 
 /**
  * outb:
- * Gửi 1 byte dữ liệu tới cổng I/O chỉ định. Được định nghĩa trong arch/x86/cpu/io.s
+ * Outputs an 8-bit byte value to the specified 16-bit I/O port.
+ * Defined in arch/x86/cpu/io.s.
  */
 void outb(uint16_t port, uint8_t value);
 
 /**
  * inb:
- * Đọc 1 byte dữ liệu từ cổng I/O chỉ định. Được định nghĩa trong arch/x86/cpu/io.s
+ * Inputs an 8-bit byte value from the specified 16-bit I/O port.
+ * Defined in arch/x86/cpu/io.s.
  */
 uint8_t inb(uint16_t port);
 
 /**
  * enable_interrupts:
- * Bật cờ ngắt CPU (sti).
+ * Enables CPU hardware interrupts by executing the sti instruction.
  */
 void enable_interrupts(void);
 
 /**
  * disable_interrupts:
- * Tắt cờ ngắt CPU (cli).
+ * Disables CPU hardware interrupts by executing the cli instruction.
  */
 void disable_interrupts(void);
 

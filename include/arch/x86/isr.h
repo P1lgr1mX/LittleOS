@@ -4,10 +4,12 @@
 #include "types.h"
 #include "arch/x86/io.h"
 
+/* Structure representing general-purpose CPU registers saved by common_interrupt_handler */
 struct registers {
     uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;
 } __attribute__((packed));
 
+/* Structure representing stack frame pushed upon CPU interrupt/exception entry */
 struct stack_state {
     uint32_t error_code; 
     uint32_t eip;

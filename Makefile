@@ -1,36 +1,36 @@
-# Trình biên dịch và công cụ
+# Toolchain configuration
 CC = gcc
 AS = nasm
 LD = ld
 OBJCOPY = objcopy
 QEMU = qemu-system-i386
 
-# Cờ biên dịch và liên kết cho Kernel
+# Kernel compilation and linking flags
 CFLAGS = -m32 -nostdlib -nostdinc -fno-builtin -fno-stack-protector \
          -nostartfiles -nodefaultlibs -Wall -Wextra -Werror -c \
          -I. -Iinclude -Iinclude/arch/x86 -Iinclude/drivers -Iinclude/kernel -Iarch/x86/mmu
 ASFLAGS = -f elf
 LDFLAGS = -T link.ld -melf_i386 --no-warn-rwx-segments
 
-# Cờ biên dịch và liên kết cho Userland
+# Userland compilation and linking flags
 USER_CFLAGS = -m32 -nostdlib -nostdinc -fno-builtin -fno-stack-protector \
               -fno-asynchronous-unwind-tables -fno-unwind-tables \
               -nostartfiles -nodefaultlibs -Wall -Wextra -Werror -c \
               -Iuserland/libc/include -Iuserland/shell
 USER_LDFLAGS = -T userland/user.ld -melf_i386 --no-warn-rwx-segments
 
-# Thư mục build
+# Build directories
 BUILD_DIR = build
 ISO_DIR = $(BUILD_DIR)/iso
 
-# Danh sách mã nguồn Assembly Kernel
+# Kernel Assembly source files
 ASM_SOURCES = arch/x86/boot/loader.s \
               arch/x86/cpu/io.s \
               arch/x86/cpu/idt.s \
               arch/x86/cpu/isr.s \
               kernel/syscall.s
 
-# Danh sách mã nguồn C Kernel
+# Kernel C source files
 C_SOURCES = kernel/kmain.c \
             kernel/kheap.c \
             kernel/syscall.c \
@@ -43,7 +43,7 @@ C_SOURCES = kernel/kmain.c \
             drivers/pic.c \
             drivers/keyboard.c
 
-# Mã nguồn Userland (Shell & Libc)
+# Userland source files (Shell and Libc)
 USER_ASM_SOURCES = userland/libc/src/entry.s \
                    userland/libc/src/syscall.s
 
@@ -52,23 +52,23 @@ USER_C_SOURCES = userland/libc/src/string.c \
                  userland/shell/commands.c \
                  userland/shell/shell.c
 
-# Danh sách file đối tượng Kernel
+# Kernel object files
 ASM_OBJECTS = $(patsubst %.s, $(BUILD_DIR)/%.s.o, $(ASM_SOURCES))
 C_OBJECTS   = $(patsubst %.c, $(BUILD_DIR)/%.c.o, $(C_SOURCES))
 OBJECTS     = $(ASM_OBJECTS) $(C_OBJECTS)
 
-# Danh sách file đối tượng Userland
+# Userland object files
 USER_ASM_OBJECTS = $(patsubst %.s, $(BUILD_DIR)/%.s.o, $(USER_ASM_SOURCES))
 USER_C_OBJECTS   = $(patsubst %.c, $(BUILD_DIR)/%.c.o, $(USER_C_SOURCES))
 USER_OBJECTS     = $(USER_ASM_OBJECTS) $(USER_C_OBJECTS)
 
-# File nhị phân đầu ra
+# Target binary outputs
 KERNEL = $(BUILD_DIR)/kernel.elf
 USER_ELF = $(BUILD_DIR)/userland/shell.elf
 MODULE_BIN = modules/program
 OS_ISO = $(BUILD_DIR)/os.iso
 
-# Các file cấu hình GRUB nguồn
+# Source GRUB bootloader components
 GRUB_MENU = arch/x86/boot/grub/menu.lst
 GRUB_STAGE2 = arch/x86/boot/grub/stage2_eltorito
 
@@ -76,17 +76,17 @@ GRUB_STAGE2 = arch/x86/boot/grub/stage2_eltorito
 
 all: $(OS_ISO)
 
-# Quy tắc biên dịch file C Userland
+# Compilation rule for userland C sources
 $(BUILD_DIR)/userland/%.c.o: userland/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) $< -o $@
 
-# Quy tắc biên dịch file Assembly Userland
+# Compilation rule for userland Assembly sources
 $(BUILD_DIR)/userland/%.s.o: userland/%.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
-# Quy tắc liên kết User Shell ELF và xuất Flat Binary
+# Link userland shell ELF executable and export flat binary module
 $(USER_ELF): $(USER_OBJECTS)
 	@mkdir -p $(dir $@)
 	$(LD) $(USER_LDFLAGS) $(USER_OBJECTS) -o $@
@@ -95,22 +95,22 @@ $(MODULE_BIN): $(USER_ELF)
 	@mkdir -p modules
 	$(OBJCOPY) -O binary $< $@
 
-# Quy tắc biên dịch file C Kernel
+# Compilation rule for kernel C sources
 $(BUILD_DIR)/%.c.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $< -o $@
 
-# Quy tắc biên dịch file Assembly Kernel
+# Compilation rule for kernel Assembly sources
 $(BUILD_DIR)/%.s.o: %.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
-# Liên kết kernel.elf
+# Link kernel ELF executable
 $(KERNEL): $(OBJECTS)
 	@mkdir -p $(BUILD_DIR)
 	$(LD) $(LDFLAGS) $(OBJECTS) -o $@
 
-# Đóng gói ISO với GRUB El Torito
+# Generate bootable ISO image with GRUB El Torito
 $(OS_ISO): $(KERNEL) $(GRUB_MENU) $(GRUB_STAGE2) $(MODULE_BIN)
 	@mkdir -p $(ISO_DIR)/boot/grub
 	@mkdir -p $(ISO_DIR)/modules
@@ -129,14 +129,14 @@ $(OS_ISO): $(KERNEL) $(GRUB_MENU) $(GRUB_STAGE2) $(MODULE_BIN)
 	            -o $(OS_ISO) \
 	            $(ISO_DIR)
 
-# Chạy ISO qua QEMU
+# Emulate bootable ISO in QEMU
 run: $(OS_ISO)
 	$(QEMU) -serial stdio -cdrom $(OS_ISO)
 
-# Chạy trực tiếp kernel ELF qua QEMU
+# Emulate direct kernel ELF boot with initrd module in QEMU
 run-kernel: $(KERNEL) $(MODULE_BIN)
 	$(QEMU) -serial stdio -kernel $(KERNEL) -initrd $(MODULE_BIN)
 
-# Dọn dẹp thư mục build
+# Clean build artifacts
 clean:
 	rm -rf $(BUILD_DIR) $(MODULE_BIN)

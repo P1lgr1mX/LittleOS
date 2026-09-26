@@ -22,7 +22,7 @@ int cmd_clear(int argc, char **argv)
     (void)argc;
     (void)argv;
 
-    /* Gọi System Call SYS_CLEAR (5) để Kernel xóa màn hình */
+    /* Invoke SYS_CLEAR (5) system call to clear the console display */
     sys_clear();
     return 0;
 }
@@ -53,12 +53,12 @@ int cmd_about(int argc, char **argv)
     return 0;
 }
 
-/* Bảng lệnh Shell (Command Table) */
+/* Built-in command table */
 const struct builtin_cmd builtin_commands[] = {
-    {"help",  "Hien thi danh sach cac cau lenh ho tro", cmd_help},
-    {"clear", "Xoa sach man hinh console",             cmd_clear},
-    {"echo",  "In dong van ban ra man hinh",           cmd_echo},
-    {"about", "Thong tin he dieu hanh AetherOS",       cmd_about}
+    {"help",  "Display information about builtin commands", cmd_help},
+    {"clear", "Clear the terminal screen",                  cmd_clear},
+    {"echo",  "Display a line of text",                     cmd_echo},
+    {"about", "Display system and kernel information",       cmd_about}
 };
 
 const int num_builtin_commands = sizeof(builtin_commands) / sizeof(builtin_commands[0]);

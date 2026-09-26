@@ -1,5 +1,5 @@
 ; =============================================================================
-; arch/x86/boot/loader.s: Điểm nhập (Entry point) và Bootstrap Paging cho Higher-Half Kernel
+; arch/x86/boot/loader.s: Kernel Entry Point and Bootstrap Higher-Half Paging
 ; =============================================================================
 
 global _start
@@ -15,17 +15,17 @@ global kernel_stack
 global KERNEL_STACK_SIZE
 extern kmain
 
-; Các hằng số Multiboot 1
+; Multiboot 1 specification constants
 MAGIC_NUMBER        equ 0x1BADB002
-ALIGN_MODULES       equ 0x00000001              ; Yêu cầu GRUB căn chỉnh module theo trang 4KB
+ALIGN_MODULES       equ 0x00000001              ; Request bootloader to align loaded modules on 4KB page boundaries
 FLAGS               equ ALIGN_MODULES
-CHECKSUM            equ -(MAGIC_NUMBER + FLAGS) ; magic + flags + checksum phải bằng 0
+CHECKSUM            equ -(MAGIC_NUMBER + FLAGS) ; Satisfies the requirement: magic + flags + checksum == 0
 
-KERNEL_STACK_SIZE   equ 4096                    ; Kích thước stack cho kernel (4KB)
-KERNEL_VIRTUAL_BASE equ 0xC0000000              ; Địa chỉ ảo cơ sở của Higher-Half (3GB)
+KERNEL_STACK_SIZE   equ 4096                    ; Kernel bootstrap stack allocation (4KB)
+KERNEL_VIRTUAL_BASE equ 0xC0000000              ; Virtual base address of the higher-half kernel (3GB)
 
 ; =============================================================================
-; Phân vùng .multiboot: GRUB đọc header này từ file ELF trong 8KB đầu tiên
+; Section .multiboot: GRUB header within the first 8KB of the ELF executable
 ; =============================================================================
 section .multiboot
 align 4
@@ -34,114 +34,114 @@ align 4
     dd CHECKSUM
 
 ; =============================================================================
-; Phân vùng .boot: Chạy tại địa chỉ vật lý 1MB (0x00100000) khi Paging CHƯA BẬT
+; Section .boot: Executes at physical 1MB (0x00100000) prior to paging enablement
 ; =============================================================================
 section .boot
 _start:
 loader:
-    ; 1. Nạp địa chỉ vật lý của thư mục trang (boot_page_directory) vào CR3.
-    ;    Vì boot_page_directory nằm trong .data (địa chỉ ảo 0xC010xxxx),
-    ;    ta trừ đi KERNEL_VIRTUAL_BASE để lấy địa chỉ vật lý thật (0x0010xxxx).
+    ; 1. Load the physical address of the bootstrap page directory into CR3.
+    ;    Since boot_page_directory is linked in virtual space (0xC010xxxx),
+    ;    subtract KERNEL_VIRTUAL_BASE to obtain its physical address (0x0010xxxx).
     mov eax, (boot_page_directory - KERNEL_VIRTUAL_BASE)
     mov cr3, eax
 
-    ; 2. Kích hoạt phân trang: Bật bit 31 (PG - Paging Enable) trong thanh ghi CR0.
-    ;    Lúc này CPU chuyển sang chế độ phân trang. Nhờ có ánh xạ Identity Mapping
-    ;    (mục 0 trong thư mục trang), lệnh tiếp theo vẫn được thực thi bình thường.
+    ; 2. Enable paging: Set bit 31 (PG - Paging Enable) in control register CR0.
+    ;    Due to identity mapping of the first 4MB (directory entry 0), instruction
+    ;    fetching continues seamlessly at the current physical address.
     mov eax, cr0
     or  eax, 0x80000000
     mov cr0, eax
 
-    ; 3. Thực hiện bước nhảy tuyệt đối (Absolute Jump) lên địa chỉ ảo Higher-Half.
-    ;    Nhãn `higher_half` nằm trong section .text (ở mốc >= 0xC0100000).
+    ; 3. Execute an absolute jump into higher-half virtual address space.
+    ;    The label `higher_half` resides in .text at virtual address >= 0xC0100000.
     lea eax, [higher_half]
     jmp eax
 
 ; =============================================================================
-; Phân vùng .text: Mã lệnh chính của Kernel, chạy tại địa chỉ ảo Higher-Half (>= 0xC0100000)
+; Section .text: Primary kernel code running in higher-half virtual space (>= 0xC0100000)
 ; =============================================================================
 section .text
 higher_half:
-    ; 4. Thiết lập con trỏ ngăn xếp (ESP) trỏ tới đỉnh vùng nhớ stack trong không gian ảo
+    ; 4. Initialize the kernel stack pointer (ESP) to point to the top of the stack
     mov esp, kernel_stack + KERNEL_STACK_SIZE
 
-    ; 5. Đưa đối số ebx (con trỏ multiboot_info_t từ GRUB) lên stack theo chuẩn cdecl
+    ; 5. Push the Multiboot information structure pointer (EBX) per cdecl calling convention
     push ebx
 
-    ; 6. Nhảy vào hàm kmain trong C (địa chỉ ảo tại 0xC010xxxx)
+    ; 6. Transfer execution to kmain in C (located at virtual address 0xC010xxxx)
     call kmain
 
-; Vòng lặp vô hạn phòng ngừa hàm kmain trả về
+; Infinite halt loop in case kmain returns
 .loop:
     hlt
     jmp .loop
 
-; Hàm nạp bảng phân đoạn GDT
+; Load the Global Descriptor Table Register (GDTR) and reload segment registers
 load_gdt:
-    mov eax, [esp + 4]              ; Lấy con trỏ struct gdt_descriptor từ đối số C
-    lgdt [eax]                      ; Nạp GDTR
+    mov eax, [esp + 4]              ; Argument: pointer to struct gdt_ptr
+    lgdt [eax]                      ; Load GDTR
 
-    mov ax, 0x10                    ; Data segment selector (offset 0x10 trong GDT)
+    mov ax, 0x10                    ; Kernel Data Segment selector (offset 0x10 in GDT)
     mov ds, ax
     mov ss, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
 
-    jmp 0x08:.flush_cs              ; Nhảy liên phân đoạn để nạp Code segment selector 0x08
+    jmp 0x08:.flush_cs              ; Far jump to flush instruction pipeline and reload CS (0x08)
 
 .flush_cs:
     ret
 
-; Hàm nạp CR3 từ C
+; Load page directory base physical address into CR3
 load_page_directory:
     mov eax, [esp + 4]
     mov cr3, eax
     ret
 
-; Hàm bật bit PG trong CR0 từ C
+; Enable MMU paging by setting bit 31 (PG) in CR0
 enable_paging:
     mov eax, cr0
     or  eax, 0x80000000
     mov cr0, eax
     ret
 
-; Hàm nạp Task Register (TR) từ C: load_tss(unsigned short selector)
+; Load Task Register (TR): load_tss(uint16_t selector)
 load_tss:
     mov ax, [esp + 4]
     ltr ax
     ret
 
-; Hàm nhảy xuống Ring 3 (User Mode) bằng iret: enter_user_mode(eip, esp)
+; Transition to Ring 3 (User Mode) via iret frame: enter_user_mode(eip, esp)
 enter_user_mode:
-    mov eax, [esp + 4]              ; EIP đích của tiến trình User
-    mov ebx, [esp + 8]              ; ESP đỉnh ngăn xếp của User
+    mov eax, [esp + 4]              ; Target EIP of userland process
+    mov ebx, [esp + 8]              ; Target ESP (user stack top)
 
-    ; Nạp Data Segment Selector của User: 0x20 | 3 = 0x23
+    ; Load User Data Segment selector: 0x20 | 3 = 0x23 (RPL=3)
     mov cx, 0x23
     mov ds, cx
     mov es, cx
     mov fs, cx
     mov gs, cx
 
-    ; Đóng kịch stack để thực hiện lệnh iret:
-    ; Thứ tự pop của CPU: EIP -> CS -> EFLAGS -> ESP -> SS
-    push dword 0x23                 ; SS: 0x20 | 3 (User Data Selector với RPL=3)
-    push ebx                        ; ESP: Đỉnh ngăn xếp User (0xBFFFFFFB)
-    push dword 0x202                ; EFLAGS: Bit 1 luôn là 1, Bit 9 (IF=1: bật cờ ngắt)
-    push dword 0x1B                 ; CS: 0x18 | 3 (User Code Selector với RPL=3)
-    push eax                        ; EIP: Điểm bắt đầu thực thi của User (0x00000000)
+    ; Construct interrupt return frame for privilege transition:
+    ; Stack order expected by CPU iret: EIP -> CS -> EFLAGS -> ESP -> SS
+    push dword 0x23                 ; SS: User Data Segment selector (RPL=3)
+    push ebx                        ; ESP: User stack pointer (e.g. 0xBFFFFFFB)
+    push dword 0x202                ; EFLAGS: Bit 1 reserved (1), Bit 9 (IF=1: interrupts enabled)
+    push dword 0x1B                 ; CS: User Code Segment selector (0x18 | 3, RPL=3)
+    push eax                        ; EIP: User program entry point (e.g. 0x00000000)
 
-    iret                            ; CPU chuyển đặc quyền sang Ring 3!
+    iret                            ; CPU pops frame and lowers privilege level to Ring 3
 
 ; =============================================================================
-; Phân vùng .data: Khởi tạo bảng trang tĩnh tại thời điểm biên dịch
+; Section .data: Statically compiled bootstrap paging structures
 ; =============================================================================
 section .data
 align 4096
 boot_page_table1:
-    ; Khởi tạo 1024 mục trang (PTE), mỗi trang 4KB -> Ánh xạ đúng 4MB bộ nhớ vật lý
-    ; Cờ 3 (0b011): Present = 1, Read/Write = 1, Supervisor = 0
+    ; Map 1024 page table entries (4KB each) to cover the initial 4MB of physical RAM
+    ; Flags 3 (0b011): Present = 1, Read/Write = 1, Supervisor = 0
     %assign i 0
     %rep 1024
         dd (i * 4096) | 3
@@ -150,18 +150,18 @@ boot_page_table1:
 
 align 4096
 boot_page_directory:
-    ; Mục 0 (quản lý 0MB - 4MB ảo):
-    ; Ánh xạ Identity Map 0MB - 4MB ảo -> 0MB - 4MB vật lý (giúp CPU không crash khi vừa bật Paging)
+    ; Entry 0 (virtual 0MB - 4MB):
+    ; Identity map physical 0MB - 4MB to prevent execution faults during paging transition
     dd (boot_page_table1 - KERNEL_VIRTUAL_BASE) + 3
     times (768 - 1) dd 0
 
-    ; Mục 768 (0x300, quản lý 3GB - 3GB+4MB ảo):
-    ; Ánh xạ Higher-Half 3GB - 3GB+4MB ảo -> 0MB - 4MB vật lý (nơi kernel thực sự chạy)
+    ; Entry 768 (virtual 3GB - 3GB+4MB, offset 0x300):
+    ; Higher-half mapping to physical 0MB - 4MB where the kernel binary resides
     dd (boot_page_table1 - KERNEL_VIRTUAL_BASE) + 3
     times (1024 - 768 - 1) dd 0
 
 ; =============================================================================
-; Phân vùng .bss: Dành sẵn bộ nhớ chưa khởi tạo cho ngăn xếp (Stack)
+; Section .bss: Kernel bootstrap stack allocation
 ; =============================================================================
 section .bss
 align 4

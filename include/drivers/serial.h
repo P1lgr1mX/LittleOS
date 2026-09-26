@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-#define SERIAL_COM1_BASE                0x3F8 /* Cổng base của COM1 */ 
+#define SERIAL_COM1_BASE                0x3F8 /* Base I/O port address for COM1 UART */ 
 
 void serial_init(void);
 void serial_config_baud_rate(uint32_t base, uint32_t baud_rate);

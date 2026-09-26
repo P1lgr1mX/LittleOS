@@ -6,14 +6,14 @@ section .text.entry
 align 4
 
 _start:
-    ; Gọi hàm main trong C
+    ; Call userland main entry point in C
     call main
 
-    ; Khi main kết thúc, gọi sys_exit với giá trị trả về trong eax
+    ; Invoke sys_exit syscall with return code from eax
     push eax
     call sys_exit
 
-    ; Đề phòng trường hợp sys_exit quay lại
+    ; Guard loop in case sys_exit returns
 .halt:
     hlt
     jmp .halt

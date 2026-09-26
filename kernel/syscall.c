@@ -15,8 +15,8 @@ void do_syscall_in_C(struct pt_regs *regs)
     case SYS_WRITE: {
         /*
          * ebx: file descriptor (1 = stdout, 2 = stderr)
-         * ecx: con trỏ chuỗi (const char *buf)
-         * edx: số byte cần ghi (uint32_t count)
+         * ecx: buffer pointer (const char *buf)
+         * edx: byte count (uint32_t count)
          */
         if (regs->ebx == 1 || regs->ebx == 2) {
             const char *buf = (const char *)regs->ecx;
@@ -33,7 +33,7 @@ void do_syscall_in_C(struct pt_regs *regs)
     }
 
     case SYS_EXIT:
-        /* ebx: mã thoát (exit code) */
+        /* ebx: exit status code */
         regs->eax = regs->ebx;
         break;
 
@@ -46,13 +46,13 @@ void do_syscall_in_C(struct pt_regs *regs)
     case SYS_READ: {
         /*
          * ebx: file descriptor (0 = stdin)
-         * ecx: con trỏ buffer của User Mode (char *buf)
-         * edx: dung lượng tối đa của buffer (uint32_t max_count)
+         * ecx: userland buffer pointer (char *buf)
+         * edx: maximum buffer capacity (uint32_t max_count)
          *
-         * Chế độ Canonical (Line / Buffer mode):
-         * Gom toàn bộ ký tự vào buffer cho đến khi nhận Enter ('\n', '\r')
-         * hoặc ký tự kết thúc '\0'. Tự động thêm '\0' vào cuối buffer
-         * và trả về toàn bộ buffer hoàn chỉnh cho User Mode (Ring 3).
+         * Canonical line-buffered input mode:
+         * Gathers characters until an Enter key ('\n', '\r') or null
+         * terminator is encountered. Null-terminates the buffer and
+         * returns the length of accepted characters to Ring 3 userland.
          */
         if (regs->ebx == 0) {
             char *buf = (char *)regs->ecx;
@@ -68,7 +68,7 @@ void do_syscall_in_C(struct pt_regs *regs)
             enable_interrupts();
             uint32_t idx = 0;
 
-            /* Lặp gom ký tự cho đến khi đầy buffer hoặc gặp ký tự kết thúc (\n, \r, \0) */
+            /* Buffer characters until maximum count is reached or delimiter received */
             while (idx < max_count - 1) {
                 int c = keyboard_getchar();
                 if (c == -1) {
@@ -76,35 +76,32 @@ void do_syscall_in_C(struct pt_regs *regs)
                 }
 
                 if (c == -1) {
-                    /* Chưa có phím mới: CPU ngủ để đợi ngắt phần cứng tiếp theo */
+                    /* Wait for next hardware interrupt event */
                     __asm__ volatile("hlt");
                     continue;
                 }
 
-                /* Khi gặp Enter (\n, \r) hoặc \0: Hoàn tất buffer */
+                /* Enter ('\n', '\r') or null byte signals end-of-line */
                 if (c == '\0' || c == '\n' || c == '\r') {
-                    /* Xuống dòng hiển thị */
                     fb_write("\n", 1);
                     serial_write(SERIAL_COM1_BASE, "\r\n", 2);
                     break;
                 }
 
-                /* Xử lý phím Backspace ('\b' hoặc 127 DEL) */
+                /* Handle backspace ('\b' or DEL 127) */
                 if (c == '\b' || c == 127) {
                     if (idx > 0) {
                         idx--;
-                        /* Xóa 1 ký tự trên Framebuffer */
                         fb_write("\b", 1);
-                        /* Xóa 1 ký tự trên Serial terminal */
                         serial_write(SERIAL_COM1_BASE, "\b \b", 3);
                     }
                     continue;
                 }
 
-                /* Lưu ký tự vào buffer của User Mode */
+                /* Store character into userland buffer */
                 buf[idx++] = (char)c;
 
-                /* Echo ký tự người dùng vừa gõ ra màn hình và serial */
+                /* Echo input character to console and serial terminal */
                 char echo[2];
                 echo[0] = (char)c;
                 echo[1] = '\0';
@@ -112,10 +109,10 @@ void do_syscall_in_C(struct pt_regs *regs)
                 serial_write_char(SERIAL_COM1_BASE, (char)c);
             }
 
-            /* Đảm bảo buffer luôn kết thúc bằng '\0' chuẩn chuỗi C */
+            /* Guarantee null termination */
             buf[idx] = '\0';
 
-            /* Trả về độ dài chuỗi ký tự hợp lệ đã nhận */
+            /* Return number of characters in the received line */
             regs->eax = idx;
         } else {
             regs->eax = (uint32_t)-1;
@@ -132,6 +129,6 @@ void do_syscall_in_C(struct pt_regs *regs)
 
 void syscall_init(void)
 {
-    /* Cổng 0x80 (128): 32-bit Interrupt Gate, DPL = 3 (0xEE) để User Mode (Ring 3) có quyền gọi */
+    /* Interrupt vector 0x80 (128): 32-bit Interrupt Gate, DPL = 3 (0xEE) for userland access */
     idt_set_gate(0x80, (uint32_t)Int128Handler, 0x08, 0xEE);
 }

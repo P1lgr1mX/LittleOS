@@ -17,7 +17,7 @@ interrupt_handler_%1:
 section .text
 
 common_interrupt_handler:
-    ; Lưu toàn bộ thanh ghi tổng quát theo cấu trúc struct registers:
+    ; Save all general-purpose registers matching struct registers layout:
     ; edi, esi, ebp, esp, ebx, edx, ecx, eax
     push eax 
     push ecx 
@@ -28,32 +28,33 @@ common_interrupt_handler:
     push esi 
     push edi    
 
-    ; Chuẩn bị đối số gọi hàm C theo cdecl:
-    ; interrupt_handler(struct registers *cpu, struct stack_state *stack, unsigned int interrupt)
-    push dword [esp + 32]       ; arg3: interrupt number
-    lea eax, [esp + 40]         ; arg2: địa chỉ của struct stack_state
+    ; Prepare arguments for C handler following cdecl calling convention:
+    ; void interrupt_handler(struct registers *cpu, struct stack_state *stack, uint32_t interrupt)
+    push dword [esp + 32]       ; arg3: interrupt vector number
+    lea eax, [esp + 40]         ; arg2: pointer to struct stack_state
     push eax
-    lea eax, [esp + 8]          ; arg1: địa chỉ của struct registers
+    lea eax, [esp + 8]          ; arg1: pointer to struct registers
     push eax
 
     call interrupt_handler
 
-    add esp, 12                 ; Dọn dẹp 3 đối số con trỏ / int
+    add esp, 12                 ; Clean up the 3 arguments pushed on the stack
 
+    ; Restore general-purpose registers in reverse order
     pop edi 
     pop esi 
     pop ebp 
-    add esp, 4                  ; Bỏ qua giá trị esp đã lưu
+    add esp, 4                  ; Discard the saved ESP value
     pop ebx 
     pop edx 
     pop ecx 
     pop eax 
 
-    ; Dọn dẹp mã lỗi (error code) và số hiệu ngắt (interrupt number) từ stack
+    ; Discard error code and interrupt vector number from the stack
     add esp, 8 
     iret
 
-; Định nghĩa 32 ISR cho ngoại lệ CPU (0 - 31)
+; Define 32 ISR stubs for CPU exceptions (vectors 0 - 31)
 no_error_interrupt_handler 0
 no_error_interrupt_handler 1
 no_error_interrupt_handler 2
@@ -87,7 +88,7 @@ no_error_interrupt_handler 29
 no_error_interrupt_handler 30
 no_error_interrupt_handler 31
 
-; Định nghĩa 16 ISR cho ngắt phần cứng PIC (32 - 47)
+; Define 16 ISR stubs for 8259 PIC hardware IRQs (vectors 32 - 47)
 no_error_interrupt_handler 32
 no_error_interrupt_handler 33
 no_error_interrupt_handler 34
@@ -105,7 +106,7 @@ no_error_interrupt_handler 45
 no_error_interrupt_handler 46
 no_error_interrupt_handler 47
 
-; Bảng con trỏ chứa 48 hàm ISR
+; Vector dispatch table containing addresses of the 48 ISR stubs
 section .data
 align 4
 isr_stub_table:

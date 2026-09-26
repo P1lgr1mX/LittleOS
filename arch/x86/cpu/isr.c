@@ -17,7 +17,7 @@ void interrupt_handler(struct registers *cpu, struct stack_state *stack, uint32_
     if (interrupt < 256 && interrupt_handlers[interrupt] != 0) {
         interrupt_handlers[interrupt](cpu, stack, interrupt);
     } else {
-        /* Xử lý ngoại lệ CPU (0 - 31) chưa có trình xử lý */
+        /* Handle unhandled CPU exceptions (vectors 0 - 31) */
         if (interrupt < 32) {
             fb_set_color(FB_LIGHT_RED, FB_BLACK);
             write("\n[EXCEPTION] Unhandled CPU Exception: ", 37);
@@ -37,7 +37,7 @@ void interrupt_handler(struct registers *cpu, struct stack_state *stack, uint32_
         }
     }
 
-    /* Nếu là ngắt phần cứng PIC (32 - 47), gửi tín hiệu báo nhận PIC ACK */
+    /* Send End-Of-Interrupt (EOI) signal to 8259 PIC for hardware IRQs (vectors 32 - 47) */
     if (interrupt >= 32 && interrupt <= 47) {
         pic_ack((uint8_t)interrupt);
     }

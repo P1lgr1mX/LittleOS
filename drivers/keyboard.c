@@ -4,16 +4,16 @@
 #include "drivers/framebuffer.h"
 #include "drivers/serial.h"
 
-/* Trạng thái phím Shift */
+/* Shift key state tracker (1 = pressed, 0 = released) */
 static int shift_active = 0;
 
-/* Bộ đệm vòng (Circular / Ring Buffer) lưu trữ các ký tự phím */
+/* Circular FIFO ring buffer storing decoded characters */
 static char kbd_buffer[KBD_BUFFER_SIZE];
-static uint32_t kbd_buf_head = 0; /* Vị trí đọc */
-static uint32_t kbd_buf_tail = 0; /* Vị trí ghi */
-static uint32_t kbd_buf_count = 0; /* Số lượng ký tự đang chờ */
+static uint32_t kbd_buf_head = 0;  /* Read pointer */
+static uint32_t kbd_buf_tail = 0;  /* Write pointer */
+static uint32_t kbd_buf_count = 0; /* Number of pending characters */
 
-/* Bảng chuyển đổi Scancode Set 1 sang ASCII thường */
+/* Scancode Set 1 to unshifted ASCII lookup table */
 static const char kbd_us_ascii[128] = {
     0,   27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
     '\t', /* Tab */
@@ -33,7 +33,7 @@ static const char kbd_us_ascii[128] = {
     0, 0, 0, '-', 0, 0, 0, '+', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-/* Bảng chuyển đổi Scancode Set 1 sang ASCII khi nhấn giữ Shift */
+/* Scancode Set 1 to shifted ASCII lookup table */
 static const char kbd_us_ascii_shift[128] = {
     0,   27, '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\b',
     '\t', /* Tab */
@@ -100,7 +100,7 @@ static void keyboard_interrupt_handler(struct registers *cpu, struct stack_state
 
     uint8_t scancode = read_scan_code();
 
-    /* Bắt sự kiện nhấn / nhả phím Shift */
+    /* Handle Shift key press and release */
     if (scancode == 0x2A || scancode == 0x36) {
         shift_active = 1;
         return;
@@ -110,7 +110,7 @@ static void keyboard_interrupt_handler(struct registers *cpu, struct stack_state
         return;
     }
 
-    /* Bỏ qua các mã ngắt khi nhả phím (break code: bit 7 = 1) */
+    /* Ignore break codes (key release events: bit 7 = 1) */
     if (scancode & 0x80) {
         return;
     }
@@ -118,7 +118,7 @@ static void keyboard_interrupt_handler(struct registers *cpu, struct stack_state
     if (scancode < 128) {
         char c = shift_active ? kbd_us_ascii_shift[scancode] : kbd_us_ascii[scancode];
         if (c != 0) {
-            /* Đưa ký tự vào Ring Buffer để Syscall SYS_READ tiêu thụ */
+            /* Enqueue decoded character into the circular buffer */
             keyboard_put_char(c);
         }
     }
@@ -130,10 +130,10 @@ void keyboard_init(void)
     kbd_buf_tail = 0;
     kbd_buf_count = 0;
 
-    /* Đăng ký hàm xử lý ngắt bàn phím tại IRQ 1 (vector ngắt số 33 = 0x21) */
+    /* Register keyboard interrupt service routine for IRQ 1 (vector 33 = 0x21) */
     register_interrupt_handler(33, keyboard_interrupt_handler);
 
-    /* Đọc hết dữ liệu cũ còn tồn đọng trong bộ đệm PS/2 controller */
+    /* Flush residual data in PS/2 keyboard controller output buffer */
     while (inb(KBD_STATUS_PORT) & 0x01) {
         inb(KBD_DATA_PORT);
     }

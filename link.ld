@@ -1,14 +1,13 @@
 /* 
- * link.ld: Kịch bản liên kết dành cho Higher-Half Kernel (AetherOS)
+ * link.ld: Linker script for Higher-Half Kernel (AetherOS)
  *
- * Ý tưởng cốt lõi:
- * 1. Bootloader (GRUB) nạp Kernel vào RAM vật lý tại mốc 1MB (0x00100000).
- *    Do đó, Load Memory Address (LMA) của mọi section phải bắt đầu từ 0x00100000.
- * 2. Ta muốn toàn bộ mã lệnh, biến, con trỏ của Kernel được định vị và chạy
- *    trong không gian địa chỉ ảo (VMA) ở mốc 3GB + 1MB (0xC0100000).
- * 3. Điểm vào (Entry point) là `_start` nằm trong section `.boot` ở mốc 1MB,
- *    để khi GRUB nhảy vào (lúc Paging chưa bật), CPU có thể chạy mã khởi động
- *    mà không bị crash bộ nhớ.
+ * Architecture and Layout:
+ * 1. The bootloader (GRUB) loads the kernel image into physical RAM at 1MB (0x00100000).
+ *    Therefore, the Load Memory Address (LMA) of the bootstrap section begins at 0x00100000.
+ * 2. All kernel instructions, symbols, and pointers are linked to execute within the
+ *    higher-half virtual memory address space (VMA) starting at 3GB + 1MB (0xC0100000).
+ * 3. The entry point is `_start` in the `.boot` section at 1MB physical memory,
+ *    allowing the CPU to initialize paging prior to MMU activation without faults.
  */
 
 ENTRY(_start)
@@ -16,40 +15,40 @@ ENTRY(_start)
 SECTIONS
 {
     /* -------------------------------------------------------------
-     * Giai đoạn 1: Phần khởi động sơ cấp (Bootstrap)
-     * VMA = LMA = 0x00100000 (Địa chỉ vật lý 1MB)
+     * Stage 1: Bootstrap initialization section
+     * VMA = LMA = 0x00100000 (1MB physical memory)
      * ------------------------------------------------------------- */
     . = 0x00100000;
     kernel_physical_start = .;
     kernel_virtual_start = . + 0xC0000000;
     .boot : {
-        *(.multiboot)   /* Header Multiboot (bắt buộc nằm trong 8KB đầu) */
-        *(.boot)        /* Mã Assembly khởi tạo bảng trang và bật Paging */
+        *(.multiboot)   /* Multiboot header (must reside within first 8KB of binary) */
+        *(.boot)        /* Bootstrap assembly: sets up initial page directory and enables paging */
     }
 
     /* -------------------------------------------------------------
-     * Giai đoạn 2: Kernel chính chuyển sang Higher-Half
-     * Dời Virtual Memory Address (VMA) lên mốc 3GB: 0xC0000000
-     * Load Memory Address (LMA) được tính qua chỉ thị AT(ADDR(...) - 0xC0000000)
+     * Stage 2: Higher-Half Kernel Transition
+     * Shift Virtual Memory Address (VMA) to 3GB base: 0xC0000000
+     * Load Memory Address (LMA) is defined via AT(ADDR(...) - 0xC0000000)
      * ------------------------------------------------------------- */
     . += 0xC0000000;
 
-    /* Mã lệnh Kernel (.text): căn chỉnh theo ranh giới trang 4KB */
+    /* Executable kernel code (.text), aligned to 4KB page boundary */
     .text ALIGN (4096) : AT(ADDR(.text) - 0xC0000000) {
         *(.text)
     }
 
-    /* Dữ liệu chỉ đọc (.rodata) */
+    /* Read-only data (.rodata) */
     .rodata ALIGN (4096) : AT(ADDR(.rodata) - 0xC0000000) {
         *(.rodata*)
     }
 
-    /* Dữ liệu đã khởi tạo (.data) */
+    /* Initialized read-write data (.data) */
     .data ALIGN (4096) : AT(ADDR(.data) - 0xC0000000) {
         *(.data)
     }
 
-    /* Dữ liệu chưa khởi tạo (.bss) và biến dùng chung (COMMON) */
+    /* Uninitialized read-write data (.bss) and common symbols */
     .bss ALIGN (4096) : AT(ADDR(.bss) - 0xC0000000) {
         *(COMMON)
         *(.bss)

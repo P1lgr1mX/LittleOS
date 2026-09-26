@@ -1,25 +1,22 @@
-/*Sanemy - Nguyen Huy Quang x Gemini 3-8-flash 
-    Day 25 / 9 / 2026 
-    This file is part of the Sanemy - Nguyen Huy Quang x Gemini 3-8-flash 
-    coursework for the course "Advanced Embedded Systems" at the
-    HUST, Vietnam.
-    BSD 3-Clause License
-
-*/
+/*
+ * Kernel Bitmap Heap Allocator
+ * Part of the AetherOS Operating System Project.
+ * Licensed under the BSD 3-Clause License.
+ */
 #include "kernel/kheap.h"
 #include "drivers/framebuffer.h"
 #include "drivers/serial.h"
 
-/* Vùng nhớ vật lý / ảo cấp cho heap kernel trong .bss (căn chỉnh 4KB) */
+/* Statically allocated heap memory pool in .bss, aligned to a 4KB boundary */
 static uint8_t kheap_memory[KHEAP_SIZE] __attribute__((aligned(4096)));
 
-/* Bảng Bitmap quản lý trạng thái từng block (0 = Free, 1 = Used) */
+/* Bitmap tracking the allocation status of each block (0 = Free, 1 = Allocated) */
 static uint8_t kheap_bitmap[KHEAP_BITMAP_SIZE];
 
-/* Trạng thái khởi tạo của heap */
+/* Initialization status flag */
 static int kheap_initialized = 0;
 
-/* Các hàm phụ trợ bộ nhớ tầng thấp (thay thế libc trong kernel freestanding) */
+/* Freestanding low-level memory manipulation primitives */
 static void *kheap_memset(void *dest, int val, size_t count)
 {
     uint8_t *d = (uint8_t *)dest;
@@ -39,7 +36,7 @@ static void *kheap_memcpy(void *dest, const void *src, size_t count)
     return dest;
 }
 
-/* Thao tác bit trên bitmap */
+/* Bitmap bitwise manipulation helpers */
 static inline void bitmap_set(uint32_t bit)
 {
     kheap_bitmap[bit / 8] |= (uint8_t)(1 << (bit % 8));
@@ -57,8 +54,8 @@ static inline int bitmap_test(uint32_t bit)
 
 /**
  * kheap_init:
- * Khởi tạo vùng nhớ Bitmap Heap cho Kernel.
- * Đặt toàn bộ bitmap về 0 (tất cả các block đều tự do).
+ * Initializes the kernel heap pool and resets the tracking bitmap.
+ * All blocks are marked as free (bit = 0).
  */
 void kheap_init(void)
 {
@@ -69,10 +66,10 @@ void kheap_init(void)
 
 /**
  * kmalloc:
- * Cấp phát vùng nhớ động liên tiếp sử dụng thuật toán First-Fit trên Bitmap.
+ * Allocates contiguous heap memory using a first-fit search algorithm on the bitmap.
  *
- * @param size Số byte dữ liệu yêu cầu
- * @return Con trỏ tới vùng dữ liệu đã cấp phát hoặc NULL nếu hết bộ nhớ
+ * @param size Number of requested payload bytes
+ * @return Pointer to the allocated payload memory, or NULL if allocation fails
  */
 void *kmalloc(size_t size)
 {
@@ -80,7 +77,7 @@ void *kmalloc(size_t size)
         return NULL;
     }
 
-    /* Kích thước cần thiết bao gồm Header quản lý + Kích thước yêu cầu */
+    /* Compute total required size including the management header */
     size_t total_needed = sizeof(kheap_header_t) + size;
     uint32_t blocks_needed = (uint32_t)((total_needed + KHEAP_BLOCK_SIZE - 1) / KHEAP_BLOCK_SIZE);
 
@@ -88,7 +85,7 @@ void *kmalloc(size_t size)
         return NULL;
     }
 
-    /* Tìm kiếm blocks_needed block liên tiếp còn trống (bit = 0) */
+    /* Scan bitmap for a contiguous sequence of free blocks */
     uint32_t consecutive_free = 0;
     uint32_t start_block = 0;
 
@@ -100,19 +97,19 @@ void *kmalloc(size_t size)
             consecutive_free++;
 
             if (consecutive_free == blocks_needed) {
-                /* Đánh dấu các block đã sử dụng trong bitmap */
+                /* Mark selected blocks as allocated in bitmap */
                 for (uint32_t b = start_block; b < start_block + blocks_needed; b++) {
                     bitmap_set(b);
                 }
 
-                /* Điền thông tin vào header */
+                /* Populate allocation metadata header */
                 kheap_header_t *header = (kheap_header_t *)&kheap_memory[start_block * KHEAP_BLOCK_SIZE];
-                header->magic = KHEAP_MAGIC; //check buffer overflow here
+                header->magic = KHEAP_MAGIC;
                 header->start_block = start_block;
                 header->num_blocks = blocks_needed;
                 header->size = size;
 
-                /* Trả về địa chỉ ngay sau header để caller sử dụng */
+                /* Return pointer immediately following the header */
                 return (void *)((uint8_t *)header + sizeof(kheap_header_t));
             }
         } else {
@@ -120,12 +117,12 @@ void *kmalloc(size_t size)
         }
     }
 
-    return NULL; /* Không tìm thấy đủ block trống liên tiếp */
+    return NULL; /* Out of memory or contiguous blocks unavailable */
 }
 
 /**
  * kcalloc:
- * Cấp phát bộ nhớ cho mảng num phần tử, mỗi phần tử kích thước size, và xóa về 0.
+ * Allocates memory for an array of num elements of size bytes, zero-initializing the space.
  */
 void *kcalloc(size_t num, size_t size)
 {
@@ -139,7 +136,7 @@ void *kcalloc(size_t num, size_t size)
 
 /**
  * krealloc:
- * Thay đổi kích thước khối bộ nhớ đã cấp phát.
+ * Resizes an allocated memory block, preserving existing data contents.
  */
 void *krealloc(void *ptr, size_t new_size)
 {
@@ -157,14 +154,14 @@ void *krealloc(void *ptr, size_t new_size)
         return NULL;
     }
 
-    /* Kiểm tra xem dung lượng các block hiện tại có đủ chứa new_size không */
+    /* Check if current allocated block capacity already satisfies new_size */
     size_t current_capacity = (header->num_blocks * KHEAP_BLOCK_SIZE) - sizeof(kheap_header_t);
     if (new_size <= current_capacity) {
         header->size = new_size;
         return ptr;
     }
 
-    /* Cấp phát vùng mới và sao chép dữ liệu cũ */
+    /* Allocate a new memory block and transfer old contents */
     void *new_ptr = kmalloc(new_size);
     if (!new_ptr) {
         return NULL;
@@ -179,7 +176,7 @@ void *krealloc(void *ptr, size_t new_size)
 
 /**
  * kfree:
- * Giải phóng khối bộ nhớ đã cấp phát qua kmalloc/kcalloc/krealloc.
+ * Deallocates a memory block previously allocated by kmalloc/kcalloc/krealloc.
  */
 void kfree(void *ptr)
 {
@@ -191,14 +188,14 @@ void kfree(void *ptr)
     uintptr_t heap_start = (uintptr_t)kheap_memory;
     uintptr_t heap_end = heap_start + KHEAP_SIZE;
 
-    /* Đảm bảo con trỏ nằm hoàn toàn trong phạm vi heap */
+    /* Verify that pointer falls within valid kernel heap pool bounds */
     if (addr < heap_start + sizeof(kheap_header_t) || addr >= heap_end) {
         return;
     }
 
     kheap_header_t *header = (kheap_header_t *)((uint8_t *)ptr - sizeof(kheap_header_t));
 
-    /* Kiểm tra tính toàn vẹn (magic number) */
+    /* Verify integrity signature to detect corruption or invalid pointers */
     if (header->magic != KHEAP_MAGIC) {
         return;
     }
@@ -206,20 +203,20 @@ void kfree(void *ptr)
     uint32_t start_block = header->start_block;
     uint32_t num_blocks = header->num_blocks;
 
-    /* Xóa các bit tương ứng trong bitmap để trả lại trạng thái Free */
+    /* Reset corresponding bits in bitmap to mark blocks as free */
     for (uint32_t b = start_block; b < start_block + num_blocks; b++) {
         if (b < KHEAP_TOTAL_BLOCKS) {
             bitmap_clear(b);
         }
     }
 
-    /* Hủy magic để phát hiện lỗi giải phóng lặp (double free) */
+    /* Invalidate magic number to guard against double-free errors */
     header->magic = 0;
 }
 
 /**
  * kheap_get_total_memory:
- * Trả về tổng dung lượng heap (bytes).
+ * Returns the total pool size of the kernel heap in bytes.
  */
 size_t kheap_get_total_memory(void)
 {
@@ -228,7 +225,7 @@ size_t kheap_get_total_memory(void)
 
 /**
  * kheap_get_used_memory:
- * Trả về tổng số byte đang được cấp phát (tính theo block).
+ * Returns the total allocated memory in bytes based on occupied blocks.
  */
 size_t kheap_get_used_memory(void)
 {
@@ -243,7 +240,7 @@ size_t kheap_get_used_memory(void)
 
 /**
  * kheap_get_free_memory:
- * Trả về tổng số byte còn trống trong heap.
+ * Returns the total unallocated memory in bytes available in the heap pool.
  */
 size_t kheap_get_free_memory(void)
 {
@@ -252,7 +249,7 @@ size_t kheap_get_free_memory(void)
 
 /**
  * kheap_print_stats:
- * In thông số chi tiết trạng thái heap ra màn hình Framebuffer và Serial COM1.
+ * Outputs memory statistics to the console framebuffer and COM1 serial port.
  */
 void kheap_print_stats(void)
 {
@@ -260,18 +257,15 @@ void kheap_print_stats(void)
     size_t used  = kheap_get_used_memory();
     size_t free  = kheap_get_free_memory();
 
-    /* In thông tin thống kê tóm tắt */
-    const char *msg1 = "[ KHEAP ] Total: ";
-    fb_write(msg1, 17);
-    serial_write(SERIAL_COM1_BASE, msg1, 17);
+    const char *header_msg = "[ KHEAP ] Total: ";
+    fb_write(header_msg, 17);
+    serial_write(SERIAL_COM1_BASE, header_msg, 17);
 
-    /* In ra số KB (total / 1024) */
     char buf[16];
     uint32_t total_kb = total / 1024;
     uint32_t used_kb = used / 1024;
     uint32_t free_kb = free / 1024;
 
-    /* In chuỗi đơn giản */
     buf[0] = '0' + (char)(total_kb / 100);
     buf[1] = '0' + (char)((total_kb / 10) % 10);
     buf[2] = '0' + (char)(total_kb % 10);

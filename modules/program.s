@@ -2,7 +2,7 @@ BITS 32
 [ORG 0x00000000]
 
 start:
-    ; 1. In banner thông báo chế độ nhận chuỗi / buffer từ User Mode Ring 3
+    ; 1. Display banner indicating active canonical buffer mode in Ring 3
     mov eax, 4          ; SYS_WRITE
     mov ebx, 1          ; stdout
     mov ecx, msg_banner
@@ -10,51 +10,51 @@ start:
     int 0x80
 
 user_loop:
-    ; In dấu nhắc lệnh Prompt của User Mode
+    ; Display userland prompt
     mov eax, 4          ; SYS_WRITE
     mov ebx, 1          ; stdout
     mov ecx, prompt
     mov edx, prompt_len
     int 0x80
 
-    ; 2. Gọi SYS_READ để nhận NGUYÊN MỘT BUFFER CHUỖI HOÀN CHỈNH
-    ; Kernel sẽ gom tất cả phím bấm cho đến khi gặp Enter (\n) hoặc \0
+    ; 2. Invoke SYS_READ to receive a line-buffered input string
+    ; The kernel accumulates keystrokes until Enter (\n) or null terminator
     mov eax, 3          ; SYS_READ
     mov ebx, 0          ; stdin
-    mov ecx, user_buffer ; con trỏ buffer trong User space
-    mov edx, 128        ; dung lượng tối đa của buffer (128 bytes)
+    mov ecx, user_buffer ; user space destination buffer
+    mov edx, 128        ; maximum buffer capacity (128 bytes)
     int 0x80
 
-    ; eax chứa số lượng byte ký tự trong buffer (không tính \0)
-    ; Nếu người dùng chỉ nhấn Enter (eax <= 0), lặp lại
+    ; eax contains byte count of received input
+    ; If empty or error (eax <= 0), repeat prompt
     cmp eax, 0
     jle user_loop
 
-    ; Lưu lại độ dài chuỗi nhận được
+    ; Store length of received string
     mov [str_len], eax
 
-    ; 3. In thông báo: "[User Ring 3 Received Buffer]: \""
+    ; 3. Print receipt message prefix
     mov eax, 4
     mov ebx, 1
     mov ecx, msg_recv
     mov edx, msg_recv_len
     int 0x80
 
-    ; In NGUYÊN VẸN NỘI DUNG BUFFER vừa nhận được từ SYS_READ
+    ; Output the buffer received from SYS_READ
     mov eax, 4
     mov ebx, 1
     mov ecx, user_buffer
     mov edx, [str_len]
     int 0x80
 
-    ; In phần kết thúc "\"" và xuống dòng
+    ; Output closing quote and newline
     mov eax, 4
     mov ebx, 1
     mov ecx, msg_end
     mov edx, msg_end_len
     int 0x80
 
-    ; Lặp lại tiếp tục nhận chuỗi / buffer tiếp theo
+    ; Loop to await subsequent user input
     jmp user_loop
 
 section .data

@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-/* Các màu sắc tiêu chuẩn của VGA Text Mode (16 màu) */
+/* Standard VGA Text Mode 16-color palette */
 #define FB_BLACK         0
 #define FB_BLUE          1
 #define FB_GREEN         2
@@ -21,15 +21,15 @@
 #define FB_LIGHT_BROWN   14
 #define FB_WHITE         15
 
-/* Kích thước màn hình văn bản VGA */
+/* VGA text-mode console dimensions */
 #define FB_NUM_COLS      80
 #define FB_NUM_ROWS      25
 
-/* Giao diện tương tác tầng thấp với Framebuffer */
-void fb_write_cell(uint32_t i, char c, uint8_t fg, uint8_t bg);
+/* Low-level framebuffer character cell and hardware cursor routines */
+void fb_write_cell(uint32_t offset, char c, uint8_t fg, uint8_t bg);
 void fb_move_cursor(uint16_t pos);
 
-/* Giao diện Trình điều khiển (The Driver) */
+/* Framebuffer console driver interface */
 void fb_clear(void);
 void fb_set_color(uint8_t fg, uint8_t bg);
 int write(const char *buf, uint32_t len);

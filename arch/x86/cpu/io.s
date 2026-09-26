@@ -2,23 +2,23 @@ global outb
 
 section .text
 outb:
-    mov dx, [esp + 4]    ; port: địa chỉ cổng I/O (16-bit)
-    mov al, [esp + 8]    ; value: dữ liệu cần gửi (8-bit)
-    out dx, al           ; ghi 1 byte từ thanh ghi AL ra cổng DX
-    ret                  ; trở về hàm gọi C 
+    mov dx, [esp + 4]    ; port: 16-bit target I/O port
+    mov al, [esp + 8]    ; value: 8-bit data byte to send
+    out dx, al           ; output byte from AL to port in DX
+    ret
 
 global inb 
 inb: 
-    mov dx, [esp + 4]    ; port: địa chỉ cổng I/O (16-bit)
-    in al, dx            ; nhận 1 byte từ cổng DX vào AL
-    ret                  ; trở về hàm gọi C
+    mov dx, [esp + 4]    ; port: 16-bit source I/O port
+    in al, dx            ; input byte from port in DX to AL
+    ret
 
 global enable_interrupts
 enable_interrupts:
-    sti                  ; bật cờ ngắt IF (cho phép ngắt)
+    sti                  ; enable CPU hardware interrupts (set IF)
     ret
 
 global disable_interrupts
 disable_interrupts:
-    cli                  ; tắt cờ ngắt IF (vô hiệu hóa ngắt)
+    cli                  ; disable CPU hardware interrupts (clear IF)
     ret

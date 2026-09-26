@@ -1,84 +1,132 @@
-# LittleOS
+# AetherOS (LittleOS)
 
 <div align="center">
-  <img src="https://www.wallper.app/wallpaper/anime/popout-manga-88467e27-65d8-47e9-9951-840d49ac3804" alt="LittleOS">
+  <img src="https://www.wallper.app/wallpaper/anime/popout-manga-88467e27-65d8-47e9-9951-840d49ac3804" alt="AetherOS">
 </div>
 
-A bare-metal operating system project focused on low-level x86 kernel development, bootloader setup, VGA framebuffer output, and hardware interrupt handling. This project is designed as an educational project for learning operating system fundamentals.
+A bare-metal 32-bit x86 operating system featuring a higher-half monolithic kernel, paging and virtual memory management, interrupt routing, segmentation, preemptive-ready hardware abstraction, a bitmap heap allocator, and an isolated Ring 3 userland shell environment.
 
-## Overview
+## Architectural Overview
 
-LittleOS is a small custom operating system built from the ground up using:
-- C
-- x86 Assembly
-- GNU toolchain
-- QEMU for emulation
+AetherOS is designed from first principles using:
+- **C (Freestanding GNU C Dialect)**
+- **x86 IA-32 Assembly (NASM)**
+- **GNU Toolchain (`gcc`, `ld`, `objcopy`, `genisoimage`)**
+- **QEMU Emulation Platform**
 
-The project currently includes:
-- a custom bootloader
-- kernel entry point
-- VGA text-mode framebuffer driver
-- serial port driver
-- GDT (Global Descriptor Table) setup & reloading
-- IDT (Interrupt Descriptor Table) with 48 interrupt gates
-- 8259 PIC remapping and hardware IRQ handling
-- PS/2 Keyboard driver with Scancode Set 1 decoding
-- GRUB-compatible ISO generation
-- basic kernel startup and output routines
+### Kernel Subsystems and Capabilities:
+- **Multiboot Bootstrap**: Multiboot-compliant kernel entry point supporting GRUB stage2 El Torito bootloader.
+- **Two-Tier Paging MMU**: Higher-Half kernel architecture linked at virtual address `0xC0100000` (3GB base offset) with identity bootstrap mapping.
+- **Segmentation (GDT) & Task State Segment (TSS)**: Flat memory model descriptors for Ring 0 Kernel and Ring 3 Userland code/data segments, alongside TSS hardware stack privilege transition (`esp0`).
+- **Interrupts and Exceptions**: 256-entry Interrupt Descriptor Table (IDT), 32 CPU hardware exception handlers, and cascaded Dual 8259 Programmable Interrupt Controller (PIC) routing (vectors 32–47).
+- **Driver Layer**:
+  - Memory-mapped VGA text-mode framebuffer (80x25) with hardware cursor synchronization, color palettes, and terminal scrolling.
+  - 16550A UART Serial Driver (COM1, 115200 8N1, FIFO buffer, IRQ 4).
+  - PS/2 Keyboard Driver with Scancode Set 1 decoding, Shift state handling, and a circular FIFO ring buffer.
+- **Dynamic Memory Allocation**: Kernel Bitmap Heap Allocator (`kmalloc`, `kcalloc`, `krealloc`, `kfree`) with First-Fit search, block headers, and corruption detection sentinels.
+- **System Call Subsystem**: Software interrupt gate `INT 0x80` with `pt_regs` register context preservation (`SYS_EXIT`, `SYS_FORK`, `SYS_READ`, `SYS_WRITE`, `SYS_CLEAR`).
+- **Userland Runtime & Shell (Ring 3)**:
+  - Freestanding userland C runtime library (`libc`) providing string routines and formatted output (`printf`, `puts`, `gets`).
+  - Interactive User Shell running in Ring 3 with command dispatching (`help`, `clear`, `echo`, `about`).
 
-## Features
-
-- Bare-metal x86 kernel startup
-- Bootloader entry via `loader`
-- VGA text mode framebuffer rendering
-- Hardware cursor synchronization
-- Serial COM1 communication
-- Auto-scroll support for console output
-- Basic color support for terminal output
-- GDT segmentation setup (code and data descriptors)
-- IDT with CPU exceptions & PIC hardware interrupt routing
-- Interactive PS/2 keyboard typing with screen and serial echo
-- ISO image generation for booting in QEMU
-- Minimal kernel execution environment without libc
-
-## Project Structure
+## Project Layout
 
 ```text
-LittleOS
+AetherOS
+├── arch
+│   └── x86
+│       ├── boot
+│       │   ├── grub
+│       │   │   ├── menu.lst
+│       │   │   └── stage2_eltorito
+│       │   └── loader.s
+│       ├── cpu
+│       │   ├── gdt.c
+│       │   ├── idt.c
+│       │   ├── idt.s
+│       │   ├── io.s
+│       │   ├── isr.c
+│       │   └── isr.s
+│       └── mmu
+│           ├── paging.c
+│           └── paging.h
 ├── boot
-│   ├── grub
-│   │   ├── menu.lst
-│   │   └── stage2_eltorito
-│   └── loader.s
-├── docs
-│   └── example.c
+│   └── grub
+│       ├── menu.lst
+│       └── stage2_eltorito
 ├── drivers
 │   ├── framebuffer.c
-│   ├── framebuffer.h
-│   ├── gdt.c
-│   ├── gdt.h
-│   ├── idt.c
-│   ├── idt.h
-│   ├── idt.s
-│   ├── io.h
-│   ├── io.s
-│   ├── isr.c
-│   ├── isr.h
-│   ├── isr.s
 │   ├── keyboard.c
-│   ├── keyboard.h
 │   ├── pic.c
-│   ├── pic.h
-│   ├── serial.c
-│   └── serial.h
+│   └── serial.c
+├── include
+│   ├── arch
+│   │   └── x86
+│   │       ├── gdt.h
+│   │       ├── idt.h
+│   │       ├── io.h
+│   │       └── isr.h
+│   ├── drivers
+│   │   ├── framebuffer.h
+│   │   ├── keyboard.h
+│   │   ├── pic.h
+│   │   └── serial.h
+│   ├── kernel
+│   │   ├── kheap.h
+│   │   ├── multiboot.h
+│   │   └── syscall.h
+│   └── types.h
 ├── kernel
+│   ├── kheap.c
+│   ├── kheap.s
 │   ├── kmain.c
-│   ├── multiboot.h
-│   ├── paging.c
-│   └── paging.h
-├── link.ld
-├── Makefile
+│   ├── syscall.c
+│   └── syscall.s
+├── userland
+│   ├── libc
+│   │   ├── include
+│   │   │   ├── stdio.h
+│   │   │   ├── string.h
+│   │   │   └── unistd.h
+│   │   └── src
+│   │       ├── entry.s
+│   │       ├── stdio.c
+│   │       ├── string.c
+│   │       └── syscall.s
+│   ├── shell
+│   │   ├── commands.c
+│   │   ├── commands.h
+│   │   └── shell.c
+│   └── user.ld
 ├── modules
 │   └── program.s
+├── link.ld
+├── Makefile
 └── README.md
+```
+
+## Compilation and Execution
+
+### Prerequisites
+Ensure the following packages are installed on your host system:
+```bash
+sudo apt-get install build-essential nasm genisoimage qemu-system-x86
+```
+
+### Build Targets
+To compile the kernel, userland shell, and generate a bootable ISO image:
+```bash
+make clean
+make
+```
+
+### Running in Emulation
+To run the bootable ISO in QEMU with serial console routed to stdio:
+```bash
+make run
+```
+
+To boot directly into the kernel ELF binary:
+```bash
+make run-kernel
 ```

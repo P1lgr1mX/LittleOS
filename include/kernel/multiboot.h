@@ -5,14 +5,14 @@
 
 #define MULTIBOOT_BOOTLOADER_MAGIC  0x2BADB002
 
-/* Các bit cờ trong multiboot_info_t */
+/* Flag bits indicating fields present in multiboot_info_t */
 #define MULTIBOOT_INFO_MEMORY       0x00000001
 #define MULTIBOOT_INFO_BOOTDEV      0x00000002
 #define MULTIBOOT_INFO_CMDLINE      0x00000004
 #define MULTIBOOT_INFO_MODS         0x00000008
 #define MULTIBOOT_INFO_MEM_MAP      0x00000040
 
-/* Cấu trúc mô tả một module do bootloader (GRUB) nạp */
+/* Structure describing an auxiliary module loaded by the bootloader */
 typedef struct multiboot_module {
     uint32_t mod_start;
     uint32_t mod_end;
@@ -20,7 +20,7 @@ typedef struct multiboot_module {
     uint32_t reserved;
 } __attribute__((packed)) multiboot_module_t;
 
-/* Cấu trúc multiboot_info do GRUB truyền qua con trỏ ebx */
+/* Multiboot specification information structure passed by GRUB in EBX */
 typedef struct multiboot_info {
     uint32_t flags;
     uint32_t mem_lower;

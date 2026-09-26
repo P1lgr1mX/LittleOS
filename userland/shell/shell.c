@@ -11,13 +11,13 @@ static char *argv[MAX_ARGS];
 
 /**
  * tokenize:
- * Tách dòng lệnh thành các đối số argv dựa trên ký tự khoảng trắng
+ * Parses an input command line into an argument vector (argv) delimited by whitespace.
  */
 static int tokenize(char *line, char **args, int max_args)
 {
     int count = 0;
     while (*line != '\0' && count < max_args) {
-        /* Bỏ qua khoảng trắng */
+        /* Skip leading whitespace characters */
         while (*line == ' ' || *line == '\t' || *line == '\n' || *line == '\r') {
             line++;
         }
@@ -27,7 +27,7 @@ static int tokenize(char *line, char **args, int max_args)
 
         args[count++] = line;
 
-        /* Tìm đến khoảng trắng tiếp theo */
+        /* Scan to the next whitespace delimiter */
         while (*line != '\0' && *line != ' ' && *line != '\t' && *line != '\n' && *line != '\r') {
             line++;
         }
@@ -60,7 +60,7 @@ int main(void)
             continue;
         }
 
-        /* Tìm kiếm lệnh trong bảng lệnh builtin_commands */
+        /* Look up command in the builtin_commands dispatch table */
         int found = 0;
         for (int i = 0; i < num_builtin_commands; i++) {
             if (strcmp(argv[0], builtin_commands[i].name) == 0) {

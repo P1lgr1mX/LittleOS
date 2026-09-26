@@ -20,26 +20,26 @@ void pic_set_mask(uint8_t mask1, uint8_t mask2)
 
 void pic_remap(void)
 {
-    /* ICW1: Bắt đầu chuỗi khởi tạo PIC1 và PIC2 */
+    /* ICW1: Initialize Master and Slave 8259 PICs in cascade mode */
     outb(PIC1_PORT_A, 0x11);
     outb(PIC2_PORT_A, 0x11);
 
-    /* ICW2: Đặt vector ngắt bắt đầu: PIC1 = 0x20 (32), PIC2 = 0x28 (40) */
+    /* ICW2: Set base vector offsets: Master = 0x20 (32), Slave = 0x28 (40) */
     outb(PIC1_PORT_B, PIC1_START_INTERRUPT);
     outb(PIC2_PORT_B, PIC2_START_INTERRUPT);
 
-    /* ICW3: Thiết lập kết nối cascade giữa PIC1 và PIC2 */
-    outb(PIC1_PORT_B, 0x04); /* PIC1 có slave tại IRQ 2 */
-    outb(PIC2_PORT_B, 0x02); /* PIC2 kết nối tới IRQ 2 của PIC1 */
+    /* ICW3: Establish cascading configuration */
+    outb(PIC1_PORT_B, 0x04); /* Master PIC: Slave attached to IRQ 2 */
+    outb(PIC2_PORT_B, 0x02); /* Slave PIC: Cascade identity on IRQ 2 */
 
-    /* ICW4: Chế độ hoạt động 8086/88 */
+    /* ICW4: Select 8086/88 operation mode */
     outb(PIC1_PORT_B, 0x01);
     outb(PIC2_PORT_B, 0x01);
 
-    /* Mặt nạ ngắt ban đầu:
-     * Cho phép IRQ 1 (Keyboard: bit 1 = 0) và IRQ 4 (COM1 Serial: bit 4 = 0)
-     * PIC1: ~(0x02 | 0x10) = 0xED (1110 1101b)
-     * PIC2: 0xFF (tất cả khóa)
+    /* Initial Interrupt Mask Register (IMR) configuration:
+     * Unmask IRQ 1 (PS/2 Keyboard: bit 1 = 0) and IRQ 4 (COM1 Serial: bit 4 = 0)
+     * Master PIC: ~(0x02 | 0x10) = 0xED (1110 1101b)
+     * Slave PIC: 0xFF (all IRQ lines masked)
      */
     pic_set_mask(0xED, 0xFF);
 }
